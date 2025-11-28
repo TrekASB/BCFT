@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>BCF Topic Stats</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Trimble Connect Workspace API -->
+  <script src="https://components.connect.trimble.com/trimble-connect-workspace-api/index.js"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      background-color: #f5f5f5;
+    }
+
+    header {
+      padding: 8px 12px;
+      border-bottom: 1px solid #ddd;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background-color: #ffffff;
+    }
+
+    header h1 {
+      font-size: 16px;
+      margin: 0;
+      font-weight: 600;
+    }
+
+    header .spacer {
+      flex: 1;
+    }
+
+    button {
+      padding: 6px 10px;
+      border-radius: 4px;
+      border: 1px solid #0078d4;
+      background: #0078d4;
+      color: #fff;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 10px 12px 16px 12px;
+      gap: 12px;
+      overflow: auto;
+    }
+
+    #status {
+      font-size: 13px;
+      color: #444;
+    }
+
+    #error {
+      font-size: 13px;
+      color: #b00020;
+      white-space: pre-wrap;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+      align-items: stretch;
+    }
+
+    .card {
+      background: #ffffff;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      padding: 10px 10px 14px 10px;
+      display: flex;
+      flex-direction: column;
+      min-height: 200px;
+    }
+
+    .card h2 {
+      margin: 0 0 8px 0;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .card p {
+      margin: 0 0 6px 0;
+      font-size: 13px;
+    }
+
+    .summary-value {
+      font-size: 24px;
+      font-weight: 700;
+    }
+
+    canvas {
+      width: 100% !important;
+      height: 220px !important;
+    }
+
+    .small-text {
+      font-size: 12px;
+      color: #666;
+      margin-top: 6px;
+    }
+
+    .loading-spinner {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      border: 2px solid #ccc;
+      border-top-color: #0078d4;
+      animation: spin 0.8s linear infinite;
+      margin-right: 6px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>BCF Topic Stats</h1>
+    <div class="spacer"></div>
+    <button id="refreshBtn">Oppdater data</button>
+  </header>
+
+  <main>
+    <div id="status">Initialiserer…</div>
+    <div id="error"></div>
+
+    <div class="cards">
+      <div class="card">
+        <h2>Oversikt</h2>
+        <p>Antall BCF Topics i prosjektet:</p>
+        <p id="totalTopics" class="summary-value">–</p>
+        <p id="projectInfo" class="small-text"></p>
+      </div>
+
+      <div class="card">
+        <h2>Topics per Type</h2>
+        <canvas id="typeChart"></canvas>
+        <p class="small-text">Basert på feltet <code>topic_type</code> (eller <code>type</code>).</p>
+      </div>
+
+      <div class="card">
+        <h2>Topics per Priority</h2>
+        <canvas id="priorityChart"></canvas>
+        <p class="small-text">Typisk: Critical, High, Normal, Low.</p>
+      </div>
+
+      <div class="card">
+        <h2>Topics per Status</h2>
+        <canvas id="statusChart"></canvas>
+        <p class="small-text">Typisk: New, In Progress, Waiting, Done, Closed.</p>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    let API = null;
+    let accessToken = null;
+    let currentProjectId = null;
+    let typeChart = null;
+    let priorityChart = null;
+    let statusChart = null;
+
+    // SETT RIKTIG REGION-HOST HER:
+    //
+    // Se Topics API-dokumentasjonen for riktig base-URL per region.
+    // Eksempler (må verifiseres mot ditt prosjekt):
+    //   Nord-Amerika: https://open11.connect.trimble.com
+    //   Europa:       https://open21.connect.trimble.com
+    //
+    // Deretter bygges BCF-URL-en som:
+    //   {TOPICS_API_BASE}/bcf/3.0/projects/{projectId}/topics
+    //
+    const TOPICS_API_BASE = "https://open21.connect.trimble.com"; // <-- ENDRE VED BEHOV
+
+    function setStatus(message, isLoading = false) {
+      const statusEl = document.getElementById("status");
+      if (isLoading) {
+        statusEl.innerHTML = '<span class="loading-spinner"></span>' + message;
+      } else {
+        statusEl.textContent = message;
+      }
+    }
+
+    function setError(message) {
+      const errorEl = document.getElementById("error");
+      errorEl.textContent = message || "";
+    }
+
+    function setBusy(isBusy) {
+      const btn = document.getElementById("refreshBtn");
+      btn.disabled = isBusy;
+    }
+
+    function getHeaderLabel(obj, propName, fallbackLabel = "Ukjent") {
+      const v = obj[propName];
+      if (typeof v === "string" && v.trim() !== "") return v;
+      return fallbackLabel;
+    }
+
+    function countByKey(items, getter, emptyLabel = "Ikke satt") {
+      const counts = {};
+      for (const it of items) {
+        const raw = getter(it);
+        const key = (raw && String(raw).trim()) || emptyLabel;
+        counts[key] = (counts[key] || 0) + 1;
+      }
+      return counts;
+    }
+
+    function buildBarChart(ctx, title, counts) {
+      const labels = Object.keys(counts);
+      const data = labels.map(l => counts[l]);
+
+      if (!labels.length) {
+        // Hvis ingen data – blank graf
+        return new Chart(ctx, {
+          type: "bar",
+          data: {
+            labels: ["Ingen data"],
+            datasets: [{
+              label: "Antall",
+              data: [0]
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: { display: false },
+              title: { display: false }
+            },
+            scales: {
+              x: { ticks: { font: { size: 11 } } },
+              y: { beginAtZero: true, ticks: { precision: 0 } }
+            }
+          }
+        });
+      }
+
+      return new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels,
+          datasets: [{
+            label: "Antall Topics",
+            data
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            title: { display: false },
+            tooltip: {
+              callbacks: {
+                label: function(ctx) {
+                  return ctx.parsed.y + " topics";
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              ticks: {
+                font: { size: 11 },
+                autoSkip: false,
+                maxRotation: 45,
+                minRotation: 0
+              }
+            },
+            y: {
+              beginAtZero: true,
+              ticks: {
+                precision: 0
+              }
+            }
+          }
+        }
+      });
+    }
+
+    async function fetchTopics(projectId) {
+      if (!accessToken) {
+        throw new Error("Mangler accessToken – kunne ikke hente Topics.");
+      }
+
+      const url = `${TOPICS_API_BASE}/bcf/3.0/projects/${encodeURIComponent(projectId)}/topics`;
+
+      const resp = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${accessToken}`,
+          "Accept": "application/json"
+        }
+      });
+
+      if (!resp.ok) {
+        const text = await resp.text().catch(() => "");
+        throw new Error(`Topics API-feil (${resp.status}): ${text || resp.statusText}`);
+      }
+
+      const json = await resp.json();
+      // For BCF 3.0 er dette typisk en array med topic-objekter
+      if (!Array.isArray(json)) {
+        console.warn("Uventet responsformat fra Topics API:", json);
+        return [];
+      }
+      return json;
+    }
+
+    function updateCharts(topics) {
+      const total = topics.length;
+      document.getElementById("totalTopics").textContent = String(total);
+
+      // Rydd opp gamle grafer om de finnes
+      if (typeChart) typeChart.destroy();
+      if (priorityChart) priorityChart.destroy();
+      if (statusChart) statusChart.destroy();
+
+      const typeCounts = countByKey(
+        topics,
+        t => t.topic_type || t.type,
+        "Ikke satt"
+      );
+      const priorityCounts = countByKey(
+        topics,
+        t => t.priority,
+        "Ikke satt"
+      );
+      const statusCounts = countByKey(
+        topics,
+        t => t.status,
+        "Ikke satt"
+      );
+
+      const typeCtx = document.getElementById("typeChart").getContext("2d");
+      const priorityCtx = document.getElementById("priorityChart").getContext("2d");
+      const statusCtx = document.getElementById("statusChart").getContext("2d");
+
+      typeChart = buildBarChart(typeCtx, "Topics per Type", typeCounts);
+      priorityChart = buildBarChart(priorityCtx, "Topics per Priority", priorityCounts);
+      statusChart = buildBarChart(statusCtx, "Topics per Status", statusCounts);
+    }
+
+    async function refreshData() {
+      if (!currentProjectId) {
+        setError("Mangler projectId – er extensionen lastet i et Trimble Connect-prosjekt?");
+        return;
+      }
+
+      setBusy(true);
+      setStatus("Henter BCF Topics …", true);
+      setError("");
+
+      try {
+        const topics = await fetchTopics(currentProjectId);
+        updateCharts(topics);
+        setStatus(`Sist oppdatert: ${new Date().toLocaleString()}`);
+      } catch (err) {
+        console.error(err);
+        setError("Feil ved henting av Topics: " + (err.message || err));
+        setStatus("Klar, men med feil ved siste oppdatering.");
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    function handleAccessTokenPayload(payload) {
+      // Payload kan være enten en streng token eller et objekt med status
+      if (!payload) return;
+
+      if (typeof payload === "string") {
+        if (payload === "pending" || payload === "denied") {
+          // håndteres under
+          return;
+        }
+        accessToken = payload;
+        refreshData();
+        return;
+      }
+
+      if (typeof payload === "object") {
+        if (payload.status === "denied") {
+          setError("Tilgang til accessToken ble avslått i Trimble Connect-innstillinger.");
+          setStatus("Kan ikke hente BCF Topics uten accessToken.");
+        } else if (payload.accessToken) {
+          accessToken = payload.accessToken;
+          refreshData();
+        }
+      }
+    }
+
+    async function init() {
+      setStatus("Kobler til Trimble Connect …", true);
+      setError("");
+
+      try {
+        API = await TrimbleConnectWorkspace.connect(window.parent, (event, args) => {
+          switch (event) {
+            case "extension.accessToken":
+              handleAccessTokenPayload(args.data);
+              break;
+            default:
+              // Andre events kan logges ved behov
+              // console.log("Event:", event, args);
+              break;
+          }
+        });
+
+        const projectInfo = await API.project.getCurrentProject();
+        currentProjectId = projectInfo.id;
+        const projectText = `Prosjekt: ${projectInfo.name} (ID: ${projectInfo.id})`;
+        document.getElementById("projectInfo").textContent = projectText;
+
+        setStatus("Ber om tilgang til accessToken …", true);
+
+        // Forsøk å be om token – denne kan returnere selve tokenet
+        // eller 'pending'/'denied' som status.
+        const permissionResult = await API.extension.requestPermission("accesstoken");
+        handleAccessTokenPayload(permissionResult);
+
+        if (permissionResult === "pending") {
+          setStatus("Venter på at bruker godkjenner tilgang i Trimble Connect …", true);
+        } else if (permissionResult === "denied") {
+          setError("Tilgang til accessToken ble avslått i Trimble Connect-innstillinger.");
+          setStatus("Kan ikke hente BCF Topics uten accessToken.");
+        } else if (typeof permissionResult === "string") {
+          // Anta at dette er selve tokenet
+          accessToken = permissionResult;
+          await refreshData();
+        } else if (permissionResult && permissionResult.accessToken) {
+          accessToken = permissionResult.accessToken;
+          await refreshData();
+        } else {
+          // Hvis vi kommer hit venter vi på extension.accessToken-eventet
+          setStatus("Venter på accessToken fra Trimble Connect …", true);
+        }
+
+      } catch (err) {
+        console.error(err);
+        setError("Klarte ikke å koble til Trimble Connect Workspace API: " + (err.message || err));
+        setStatus("Feil ved initialisering.");
+      }
+    }
+
+    document.getElementById("refreshBtn").addEventListener("click", () => {
+      refreshData();
+    });
+
+    window.addEventListener("DOMContentLoaded", init);
+  </script>
+</body>
+</html>
