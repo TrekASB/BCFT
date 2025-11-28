@@ -171,7 +171,7 @@
       <div class="card">
         <h2>Topics per Status</h2>
         <canvas id="statusChart"></canvas>
-        <p class="small-text">Typisk: New, In Progress, Waiting, Done, Closed.</p>
+        <p class="small-text">Basert på feltet <code>topic_status</code>.</p>
       </div>
     </div>
   </main>
@@ -184,16 +184,6 @@
     let priorityChart = null;
     let statusChart = null;
 
-    // SETT RIKTIG REGION-HOST HER:
-    //
-    // Se Topics API-dokumentasjonen for riktig base-URL per region.
-    // Eksempler (må verifiseres mot ditt prosjekt):
-    //   Nord-Amerika: https://open11.connect.trimble.com
-    //   Europa:       https://open21.connect.trimble.com
-    //
-    // Deretter bygges BCF-URL-en som:
-    //   {TOPICS_API_BASE}/bcf/3.0/projects/{projectId}/topics
-    //
     const TOPICS_API_BASE = "https://open21.connect.trimble.com"; // <-- ENDRE VED BEHOV
 
     function setStatus(message, isLoading = false) {
@@ -215,12 +205,6 @@
       btn.disabled = isBusy;
     }
 
-    function getHeaderLabel(obj, propName, fallbackLabel = "Ukjent") {
-      const v = obj[propName];
-      if (typeof v === "string" && v.trim() !== "") return v;
-      return fallbackLabel;
-    }
-
     function countByKey(items, getter, emptyLabel = "Ikke satt") {
       const counts = {};
       for (const it of items) {
@@ -236,7 +220,6 @@
       const data = labels.map(l => counts[l]);
 
       if (!labels.length) {
-        // Hvis ingen data – blank graf
         return new Chart(ctx, {
           type: "bar",
           data: {
@@ -323,7 +306,6 @@
       }
 
       const json = await resp.json();
-      // For BCF 3.0 er dette typisk en array med topic-objekter
       if (!Array.isArray(json)) {
         console.warn("Uventet responsformat fra Topics API:", json);
         return [];
@@ -335,7 +317,6 @@
       const total = topics.length;
       document.getElementById("totalTopics").textContent = String(total);
 
-      // Rydd opp gamle grafer om de finnes
       if (typeChart) typeChart.destroy();
       if (priorityChart) priorityChart.destroy();
       if (statusChart) statusChart.destroy();
@@ -352,7 +333,8 @@
       );
       const statusCounts = countByKey(
         topics,
-        t => t.status,
+        // <-- ENDRET HER: bruker topic_status først, deretter status som fallback
+        t => t.topic_status || t.status,
         "Ikke satt"
       );
 
@@ -389,12 +371,10 @@
     }
 
     function handleAccessTokenPayload(payload) {
-      // Payload kan være enten en streng token eller et objekt med status
       if (!payload) return;
 
       if (typeof payload === "string") {
         if (payload === "pending" || payload === "denied") {
-          // håndteres under
           return;
         }
         accessToken = payload;
@@ -424,8 +404,6 @@
               handleAccessTokenPayload(args.data);
               break;
             default:
-              // Andre events kan logges ved behov
-              // console.log("Event:", event, args);
               break;
           }
         });
@@ -437,8 +415,6 @@
 
         setStatus("Ber om tilgang til accessToken …", true);
 
-        // Forsøk å be om token – denne kan returnere selve tokenet
-        // eller 'pending'/'denied' som status.
         const permissionResult = await API.extension.requestPermission("accesstoken");
         handleAccessTokenPayload(permissionResult);
 
@@ -448,14 +424,12 @@
           setError("Tilgang til accessToken ble avslått i Trimble Connect-innstillinger.");
           setStatus("Kan ikke hente BCF Topics uten accessToken.");
         } else if (typeof permissionResult === "string") {
-          // Anta at dette er selve tokenet
           accessToken = permissionResult;
           await refreshData();
         } else if (permissionResult && permissionResult.accessToken) {
           accessToken = permissionResult.accessToken;
           await refreshData();
         } else {
-          // Hvis vi kommer hit venter vi på extension.accessToken-eventet
           setStatus("Venter på accessToken fra Trimble Connect …", true);
         }
 
