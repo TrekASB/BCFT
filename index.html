@@ -184,7 +184,32 @@
     let priorityChart = null;
     let statusChart = null;
 
+    // Region-host
     const TOPICS_API_BASE = "https://open21.connect.trimble.com"; // <-- ENDRE VED BEHOV
+
+    // Fargekart
+    const STATUS_COLORS = {
+      "New": "#3684D1",
+      "In Progress": "#FCC603",
+      "Waiting": "#29B35B",
+      "Done": "#3684D1",
+      "Closed": "#36B7D1"
+    };
+
+    const PRIORITY_COLORS = {
+      "Low": "#72A544",
+      "Normal": "#005F9E",
+      "High": "#FFBE00",
+      "Critical": "#C81922"
+    };
+
+    const TYPE_COLORS = {
+      "Issue": "#FF0000",
+      "Clash": "#F908E9",
+      "Request": "#FFFF00"
+    };
+
+    const DEFAULT_BAR_COLOR = "#999999";
 
     function setStatus(message, isLoading = false) {
       const statusEl = document.getElementById("status");
@@ -215,7 +240,8 @@
       return counts;
     }
 
-    function buildBarChart(ctx, title, counts) {
+    // Nå med støtte for fargekart
+    function buildBarChart(ctx, title, counts, colorMap) {
       const labels = Object.keys(counts);
       const data = labels.map(l => counts[l]);
 
@@ -243,13 +269,20 @@
         });
       }
 
+      const backgroundColors = labels.map(label =>
+        (colorMap && colorMap[label]) ? colorMap[label] : DEFAULT_BAR_COLOR
+      );
+
       return new Chart(ctx, {
         type: "bar",
         data: {
           labels,
           datasets: [{
             label: "Antall Topics",
-            data
+            data,
+            backgroundColor: backgroundColors,
+            borderColor: backgroundColors,
+            borderWidth: 1
           }]
         },
         options: {
@@ -333,7 +366,6 @@
       );
       const statusCounts = countByKey(
         topics,
-        // <-- ENDRET HER: bruker topic_status først, deretter status som fallback
         t => t.topic_status || t.status,
         "Ikke satt"
       );
@@ -342,9 +374,10 @@
       const priorityCtx = document.getElementById("priorityChart").getContext("2d");
       const statusCtx = document.getElementById("statusChart").getContext("2d");
 
-      typeChart = buildBarChart(typeCtx, "Topics per Type", typeCounts);
-      priorityChart = buildBarChart(priorityCtx, "Topics per Priority", priorityCounts);
-      statusChart = buildBarChart(statusCtx, "Topics per Status", statusCounts);
+      // Knytter riktig fargekart til hver graf
+      typeChart = buildBarChart(typeCtx, "Topics per Type", typeCounts, TYPE_COLORS);
+      priorityChart = buildBarChart(priorityCtx, "Topics per Priority", priorityCounts, PRIORITY_COLORS);
+      statusChart = buildBarChart(statusCtx, "Topics per Status", statusCounts, STATUS_COLORS);
     }
 
     async function refreshData() {
@@ -427,7 +460,7 @@
           accessToken = permissionResult;
           await refreshData();
         } else if (permissionResult && permissionResult.accessToken) {
-          accessToken = permissionResult.accessToken;
+          accessToken = permissionResult;
           await refreshData();
         } else {
           setStatus("Venter på accessToken fra Trimble Connect …", true);
