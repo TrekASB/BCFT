@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="nb">
 <head>
   <meta charset="UTF-8" />
   <title>BCF Topic Stats</title>
@@ -12,160 +12,224 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style>
-    body {
-      margin: 0;
-      padding: 0;
+    :root{
+      --primary:#0069d9;
+      --success:#28a745;
+      --danger:#e74c3c;
+      --gray:#6c757d;
+      --border:#e5e7eb;
+      --card:#ffffff;
+      --bg:#f5f5f7;
+      --text:#111827;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-      background-color: #f5f5f5;
     }
 
-    header {
-      padding: 8px 12px;
-      border-bottom: 1px solid #ddd;
-      font-size: 14px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      background-color: #ffffff;
+    body{
+      margin:0;
+      background:var(--bg);
+      color:var(--text);
+      min-height:100vh;
+      display:flex;
+      flex-direction:column;
     }
 
-    header h1 {
-      font-size: 16px;
-      margin: 0;
-      font-weight: 600;
+    /* ====== HEADER (logo + overskrift) ====== */
+    header{
+      display:flex;
+      align-items:center;
+      gap:14px;
+      padding:12px 14px;
+      background:var(--card);
+      border-bottom:1px solid var(--border);
     }
 
-    header .spacer { flex: 1; }
-
-    button {
-      padding: 6px 10px;
-      border-radius: 4px;
-      border: 1px solid #0078d4;
-      background: #0078d4;
-      color: #fff;
-      font-size: 13px;
-      cursor: pointer;
+    .logoBox{
+      width:92px;
+      height:92px;
+      border-radius:12px;
+      background:#fff;
+      border:1px solid #eee;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      overflow:hidden;
+      box-shadow:0 1px 3px rgba(15,23,42,.08);
+      flex:0 0 auto;
+    }
+    .logoBox img{
+      width:84px;
+      height:84px;
+      object-fit:contain;
+      display:block;
     }
 
-    button.secondary {
-      border: 1px solid #777;
-      background: #777;
+    .titleBlock{ display:flex; flex-direction:column; gap:2px; }
+    .title{ font-weight:800; font-size:18px; color:var(--primary); line-height:1.1; }
+    .org{ font-weight:700; font-size:13px; opacity:.9; }
+    .dev{ font-size:11px; opacity:.75; font-style:italic; }
+
+    .headerRight{
+      margin-left:auto;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+    #status{
+      font-size:12px;
+      opacity:.85;
+      white-space:nowrap;
+      max-width:520px;
+      overflow:hidden;
+      text-overflow:ellipsis;
     }
 
-    button:disabled {
-      opacity: 0.6;
-      cursor: default;
+    button{
+      padding:8px 10px;
+      border-radius:8px;
+      border:1px solid var(--primary);
+      background:var(--primary);
+      color:#fff;
+      font-size:13px;
+      font-weight:600;
+      cursor:pointer;
+      box-shadow:0 1px 2px rgba(0,0,0,.08);
+    }
+    button.secondary{
+      border:1px solid #777;
+      background:#777;
+    }
+    button:disabled{ opacity:.6; cursor:default; }
+
+    .loading-spinner{
+      display:inline-block;
+      width:12px;
+      height:12px;
+      border-radius:50%;
+      border:2px solid #ccc;
+      border-top-color:var(--primary);
+      animation:spin .8s linear infinite;
+      margin-right:6px;
+      vertical-align:-2px;
+    }
+    @keyframes spin{ to{ transform:rotate(360deg);} }
+
+    /* ====== MAIN ====== */
+    main{
+      flex:1;
+      display:flex;
+      flex-direction:column;
+      padding:12px 14px 18px 14px;
+      gap:12px;
+      overflow:auto;
     }
 
-    main {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      padding: 10px 12px 16px 12px;
-      gap: 12px;
-      overflow: auto;
+    #error{
+      font-size:13px;
+      color:#b00020;
+      white-space:pre-wrap;
     }
 
-    #status { font-size: 13px; color: #444; }
-    #error { font-size: 13px; color: #b00020; white-space: pre-wrap; }
-
-    .cards {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      gap: 16px;
-      align-items: stretch;
+    .cards{
+      display:grid;
+      grid-template-columns:repeat(auto-fit, minmax(300px, 1fr));
+      gap:14px;
+      align-items:stretch;
     }
 
-    .card {
-      background: #ffffff;
-      border-radius: 8px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-      padding: 10px 10px 14px 10px;
-      display: flex;
-      flex-direction: column;
-      min-height: 200px;
+    .card{
+      background:var(--card);
+      border-radius:14px;
+      box-shadow:0 1px 3px rgba(0,0,0,0.08);
+      padding:12px 12px 14px 12px;
+      display:flex;
+      flex-direction:column;
+      min-height:220px;
+      border:1px solid rgba(0,0,0,0.04);
     }
 
-    .card h2 {
-      margin: 0 0 8px 0;
-      font-size: 14px;
-      font-weight: 600;
+    .card h2{
+      margin:0 0 8px 0;
+      font-size:14px;
+      font-weight:800;
     }
 
-    .card p {
-      margin: 0 0 6px 0;
-      font-size: 13px;
+    .summary-value{
+      font-size:28px;
+      font-weight:900;
+      line-height:1.1;
+      margin:6px 0 6px 0;
     }
 
-    .summary-value {
-      font-size: 24px;
-      font-weight: 700;
-      line-height: 1.1;
+    .small-text{
+      font-size:12px;
+      color:#6b7280;
+      margin-top:8px;
     }
 
-    .kpi-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      margin-top: 6px;
+    .kpi-grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+      margin-top:8px;
     }
 
-    .kpi {
-      border: 1px solid #eee;
-      border-radius: 8px;
-      padding: 8px;
-      background: #fafafa;
+    .kpi{
+      border:1px solid #eee;
+      border-radius:12px;
+      padding:10px;
+      background:#fafafa;
+    }
+    .kpi .label{ font-size:12px; color:#6b7280; margin-bottom:2px; }
+    .kpi .value{ font-size:18px; font-weight:900; }
+
+    canvas{
+      width:100% !important;
+      height:240px !important;
     }
 
-    .kpi .label { font-size: 12px; color: #666; margin-bottom: 2px; }
-    .kpi .value { font-size: 18px; font-weight: 700; }
-
-    canvas {
-      width: 100% !important;
-      height: 220px !important;
+    code{
+      background:#f3f4f6;
+      padding:1px 5px;
+      border-radius:6px;
+      border:1px solid #e5e7eb;
+      font-size:12px;
     }
-
-    .small-text {
-      font-size: 12px;
-      color: #666;
-      margin-top: 6px;
-    }
-
-    .loading-spinner {
-      display: inline-block;
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      border: 2px solid #ccc;
-      border-top-color: #0078d4;
-      animation: spin 0.8s linear infinite;
-      margin-right: 6px;
-    }
-
-    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
+
 <body>
+  <!-- ====== HEADER (likt mht overskrift + logo) ====== -->
   <header>
-    <h1>BCF Topic Stats</h1>
-    <div class="spacer"></div>
-    <button class="secondary" id="clearHistoryBtn" title="Sletter lagrede trend-data (lokalt i nettleser)">Tøm historikk</button>
-    <button id="refreshBtn">Oppdater data</button>
+    <div class="logoBox">
+      <!-- Legg logo-filen i samme mappe som HTML, eller bytt src -->
+      <img src="norconsult-logo-black.png" alt="Norconsult logo"
+           onerror="this.style.display='none'; this.parentElement.textContent='Norconsult'; this.parentElement.style.fontWeight='900';">
+    </div>
+
+    <div class="titleBlock">
+      <div class="title">BCF Topic Stats</div>
+      <div class="org">Norconsult Norge</div>
+      <div class="dev">Developed by Edin Dzakmic, Norconsult, (AI-assisted development)</div>
+    </div>
+
+    <div class="headerRight">
+      <div id="status"><span class="loading-spinner"></span>Kobler til Trimble Connect…</div>
+      <button class="secondary" id="clearHistoryBtn" title="Sletter trenddata lagret lokalt i nettleseren">Tøm historikk</button>
+      <button id="refreshBtn">Oppdater data</button>
+    </div>
   </header>
 
   <main>
-    <div id="status">Initialiserer…</div>
     <div id="error"></div>
 
     <div class="cards">
       <div class="card">
         <h2>Oversikt</h2>
-        <p>Antall BCF Topics i prosjektet:</p>
-        <p id="totalTopics" class="summary-value">–</p>
-        <p id="projectInfo" class="small-text"></p>
+        <div class="small-text" id="projectInfo">–</div>
+        <div class="small-text">Antall BCF Topics i prosjektet:</div>
+        <div id="totalTopics" class="summary-value">–</div>
 
         <div class="kpi-grid">
           <div class="kpi">
@@ -186,35 +250,35 @@
           </div>
         </div>
 
-        <p class="small-text">
+        <div class="small-text">
           * Behandlingstid = <code>modified_date - creation_date</code> for saker som tolkes som “lukkede”.
-        </p>
+        </div>
       </div>
 
       <div class="card">
         <h2>Tidslinje</h2>
         <canvas id="timelineChart"></canvas>
-        <p class="small-text">
-          Basert på snapshot-logg (lokalt) + BCF feltene <code>creation_date</code>/<code>modified_date</code>. :contentReference[oaicite:2]{index=2}
-        </p>
+        <div class="small-text">
+          Trend bygges av snapshots (lokalt). Oppdater data jevnlig (f.eks. ukentlig / etter ICE).
+        </div>
       </div>
 
       <div class="card">
         <h2>Topics per Type</h2>
         <canvas id="typeChart"></canvas>
-        <p class="small-text">Basert på feltet <code>topic_type</code> (eller <code>type</code>).</p>
+        <div class="small-text">Basert på <code>topic_type</code> (eller <code>type</code>).</div>
       </div>
 
       <div class="card">
         <h2>Topics per Priority</h2>
         <canvas id="priorityChart"></canvas>
-        <p class="small-text">Typisk: Critical, High, Normal, Low.</p>
+        <div class="small-text">Basert på <code>priority</code> (hvis brukt i prosjektet).</div>
       </div>
 
       <div class="card">
         <h2>Topics per Status</h2>
         <canvas id="statusChart"></canvas>
-        <p class="small-text">Basert på feltet <code>topic_status</code> (eller <code>status</code>).</p>
+        <div class="small-text">Basert på <code>topic_status</code> (eller <code>status</code>).</div>
       </div>
     </div>
   </main>
@@ -229,26 +293,27 @@
     let statusChart = null;
     let timelineChart = null;
 
-    // Region-host
-    const TOPICS_API_BASE = "https://open21.connect.trimble.com"; // <-- ENDRE VED BEHOV
+    // Host for BCF API (endre hvis miljøet ditt krever annen base)
+    const TOPICS_API_BASE = "https://open21.connect.trimble.com";
 
     // Lokal historikk (trend)
     const HISTORY_KEY_PREFIX = "bcf_topic_stats_history__";
-    function historyKey(projectId) { return HISTORY_KEY_PREFIX + projectId; }
+    const historyKey = (projectId) => HISTORY_KEY_PREFIX + projectId;
 
-    // Fargekart
+    // Farger (kan tunes)
     const STATUS_COLORS = {
       "New": "#3684D1",
+      "Open": "#FCC603",
       "In Progress": "#FCC603",
       "Waiting": "#29B35B",
-      "Done": "#3684D1",
-      "Closed": "#36B7D1",
-      "Open": "#FCC603"
+      "Done": "#36B7D1",
+      "Closed": "#36B7D1"
     };
 
     const PRIORITY_COLORS = {
       "Low": "#72A544",
       "Normal": "#005F9E",
+      "Medium": "#005F9E",
       "High": "#FFBE00",
       "Critical": "#C81922"
     };
@@ -259,17 +324,17 @@
       "Request": "#FFFF00"
     };
 
-    const DEFAULT_BAR_COLOR = "#999999";
+    const DEFAULT_BAR_COLOR = "#9CA3AF";
 
-    // Hvilke statuser tolkes som "lukket"
+    // Tilpass disse om prosjektet bruker andre statuser
     const CLOSED_STATUSES = new Set(["Closed", "Done", "Resolved", "Approved"]);
-    // Hvilke statuser tolkes som "åpen"
     const OPEN_STATUSES = new Set(["New", "Open", "In Progress", "Waiting", "ReOpened", "Reopen"]);
 
     function setStatus(message, isLoading = false) {
-      const statusEl = document.getElementById("status");
-      if (isLoading) statusEl.innerHTML = '<span class="loading-spinner"></span>' + message;
-      else statusEl.textContent = message;
+      const el = document.getElementById("status");
+      el.innerHTML = isLoading
+        ? `<span class="loading-spinner"></span>${escapeHtml(message)}`
+        : escapeHtml(message);
     }
 
     function setError(message) {
@@ -281,6 +346,15 @@
       document.getElementById("clearHistoryBtn").disabled = isBusy;
     }
 
+    function escapeHtml(str) {
+      return String(str ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
     function safeStr(v) {
       if (v === null || v === undefined) return "";
       return String(v).trim();
@@ -290,12 +364,10 @@
       const s = safeStr(v);
       if (!s) return null;
       const d = new Date(s);
-      if (Number.isNaN(d.getTime())) return null;
-      return d;
+      return Number.isNaN(d.getTime()) ? null : d;
     }
 
     function toISODate(d) {
-      // yyyy-mm-dd
       const year = d.getFullYear();
       const m = String(d.getMonth() + 1).padStart(2, "0");
       const day = String(d.getDate()).padStart(2, "0");
@@ -329,19 +401,7 @@
       const labels = Object.keys(counts);
       const data = labels.map(l => counts[l]);
 
-      if (!labels.length) {
-        return new Chart(ctx, {
-          type: "bar",
-          data: { labels: ["Ingen data"], datasets: [{ label: "Antall", data: [0] }] },
-          options: {
-            responsive: true,
-            plugins: { legend: { display: false }, title: { display: false } },
-            scales: { x: { ticks: { font: { size: 11 } } }, y: { beginAtZero: true, ticks: { precision: 0 } } }
-          }
-        });
-      }
-
-      const backgroundColors = labels.map(label => (colorMap && colorMap[label]) ? colorMap[label] : DEFAULT_BAR_COLOR);
+      const colors = labels.map(label => (colorMap && colorMap[label]) ? colorMap[label] : DEFAULT_BAR_COLOR);
 
       return new Chart(ctx, {
         type: "bar",
@@ -350,8 +410,8 @@
           datasets: [{
             label: "Antall Topics",
             data,
-            backgroundColor: backgroundColors,
-            borderColor: backgroundColors,
+            backgroundColor: colors,
+            borderColor: colors,
             borderWidth: 1
           }]
         },
@@ -359,7 +419,6 @@
           responsive: true,
           plugins: {
             legend: { display: false },
-            title: { display: false },
             tooltip: { callbacks: { label: (ctx) => `${ctx.parsed.y} topics` } }
           },
           scales: {
@@ -371,18 +430,9 @@
     }
 
     function buildTimelineChart(ctx, points) {
-      // points: [{date:"yyyy-mm-dd", openCount, newCount}]
       const labels = points.map(p => p.date);
       const openData = points.map(p => p.openCount);
       const newData = points.map(p => p.newCount);
-
-      if (!labels.length) {
-        return new Chart(ctx, {
-          type: "line",
-          data: { labels: ["Ingen historikk"], datasets: [{ label: "Åpne", data: [0] }] },
-          options: { responsive: true, plugins: { legend: { display: false } } }
-        });
-      }
 
       return new Chart(ctx, {
         type: "line",
@@ -390,15 +440,12 @@
           labels,
           datasets: [
             { label: "Åpne saker (snapshot)", data: openData, tension: 0.25 },
-            { label: "Nye saker (siste døgn/uke)", data: newData, tension: 0.25 }
+            { label: "Nye saker (siste 7 dager)", data: newData, tension: 0.25 }
           ]
         },
         options: {
           responsive: true,
-          plugins: {
-            legend: { display: true },
-            tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y}` } }
-          },
+          plugins: { legend: { display: true } },
           scales: {
             x: { ticks: { maxRotation: 45, minRotation: 0, autoSkip: true } },
             y: { beginAtZero: true, ticks: { precision: 0 } }
@@ -414,7 +461,10 @@
 
       const resp = await fetch(url, {
         method: "GET",
-        headers: { "Authorization": `Bearer ${accessToken}`, "Accept": "application/json" }
+        headers: {
+          "Authorization": `Bearer ${accessToken}`,
+          "Accept": "application/json"
+        }
       });
 
       if (!resp.ok) {
@@ -423,24 +473,17 @@
       }
 
       const json = await resp.json();
-      if (!Array.isArray(json)) {
-        console.warn("Uventet responsformat fra Topics API:", json);
-        return [];
-      }
-      return json;
+      return Array.isArray(json) ? json : [];
     }
 
-    // ---- Trend / snapshot-historikk ----
+    // ===== Trend / snapshot (lokalt) =====
     function loadHistory(projectId) {
       try {
         const raw = localStorage.getItem(historyKey(projectId));
         if (!raw) return [];
         const arr = JSON.parse(raw);
-        if (!Array.isArray(arr)) return [];
-        return arr;
-      } catch {
-        return [];
-      }
+        return Array.isArray(arr) ? arr : [];
+      } catch { return []; }
     }
 
     function saveHistory(projectId, historyArr) {
@@ -449,8 +492,6 @@
 
     function upsertSnapshot(projectId, snapshot) {
       const history = loadHistory(projectId);
-
-      // Vi lagrer per dato (yyyy-mm-dd). Hvis du vil ha flere datapunkter per dag, bytt key til timestamp.
       const idx = history.findIndex(x => x.date === snapshot.date);
       if (idx >= 0) history[idx] = snapshot;
       else history.push(snapshot);
@@ -465,7 +506,6 @@
     }
 
     function computeNewTopicsSince(topics, sinceDate) {
-      // teller topics opprettet >= sinceDate
       let count = 0;
       for (const t of topics) {
         const cd = parseDateMaybe(t.creation_date);
@@ -480,16 +520,12 @@
         const st = safeStr(t.topic_status || t.status) || "Ikke satt";
         if (CLOSED_STATUSES.has(st)) closed++;
         else if (OPEN_STATUSES.has(st)) open++;
-        else {
-          // fallback: ukjent status -> regn som åpen, men du kan endre
-          open++;
-        }
+        else open++;
       }
       return { open, closed };
     }
 
     function computeCycleTimesDays(topics) {
-      // For "lukkede" topics: (modified_date - creation_date)
       const days = [];
       for (const t of topics) {
         const st = safeStr(t.topic_status || t.status);
@@ -502,17 +538,14 @@
         const diffMs = md.getTime() - cd.getTime();
         if (diffMs < 0) continue;
 
-        const diffDays = diffMs / (1000 * 60 * 60 * 24);
-        days.push(diffDays);
+        days.push(diffMs / (1000 * 60 * 60 * 24));
       }
       return days;
     }
 
     function updateCharts(topics) {
-      const total = topics.length;
-      document.getElementById("totalTopics").textContent = String(total);
+      document.getElementById("totalTopics").textContent = String(topics.length);
 
-      // Status / type / priority
       const typeCounts = countByKey(topics, t => t.topic_type || t.type, "Ikke satt");
       const priorityCounts = countByKey(topics, t => t.priority, "Ikke satt");
       const statusCounts = countByKey(topics, t => t.topic_status || t.status, "Ikke satt");
@@ -525,7 +558,6 @@
       priorityChart = buildBarChart(document.getElementById("priorityChart").getContext("2d"), priorityCounts, PRIORITY_COLORS);
       statusChart = buildBarChart(document.getElementById("statusChart").getContext("2d"), statusCounts, STATUS_COLORS);
 
-      // KPI: open/closed + cycle time
       const oc = computeOpenClosed(topics);
       document.getElementById("openNow").textContent = String(oc.open);
       document.getElementById("closedNow").textContent = String(oc.closed);
@@ -536,19 +568,19 @@
       document.getElementById("medianCycle").textContent = (med === null) ? "–" : String(Math.round(med));
       document.getElementById("avgCycle").textContent = (av === null) ? "–" : String(Math.round(av));
 
-      // Timeline (snapshot-trend)
+      // Timeline snapshot
       const today = new Date();
       const todayKey = toISODate(today);
 
-      // "Nye saker siden i går" (du kan bytte til 7 dager for uke-trend)
-      const since = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+      // Nye siste 7 dager
+      const since = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
       const newSince = computeNewTopicsSince(topics, since);
 
       const snapshot = {
         date: todayKey,
         openCount: oc.open,
         closedCount: oc.closed,
-        totalCount: total,
+        totalCount: topics.length,
         newCount: newSince
       };
 
@@ -568,8 +600,8 @@
       }
 
       setBusy(true);
-      setStatus("Henter BCF Topics …", true);
       setError("");
+      setStatus("Henter BCF Topics …", true);
 
       try {
         const topics = await fetchTopics(currentProjectId);
@@ -606,17 +638,13 @@
     }
 
     async function init() {
-      setStatus("Kobler til Trimble Connect …", true);
       setError("");
+      setStatus("Kobler til Trimble Connect …", true);
 
       try {
         API = await TrimbleConnectWorkspace.connect(window.parent, (event, args) => {
-          switch (event) {
-            case "extension.accessToken":
-              handleAccessTokenPayload(args.data);
-              break;
-            default:
-              break;
+          if (event === "extension.accessToken") {
+            handleAccessTokenPayload(args.data);
           }
         });
 
@@ -631,7 +659,7 @@
         handleAccessTokenPayload(permissionResult);
 
         if (permissionResult === "pending") {
-          setStatus("Venter på at bruker godkjenner tilgang i Trimble Connect …", true);
+          setStatus("Venter på at bruker godkjenner tilgang …", true);
         } else if (permissionResult === "denied") {
           setError("Tilgang til accessToken ble avslått i Trimble Connect-innstillinger.");
           setStatus("Kan ikke hente BCF Topics uten accessToken.");
@@ -642,7 +670,7 @@
           accessToken = permissionResult.accessToken;
           await refreshData();
         } else {
-          setStatus("Venter på accessToken fra Trimble Connect …", true);
+          setStatus("Venter på accessToken …", true);
         }
       } catch (err) {
         console.error(err);
@@ -656,11 +684,13 @@
     document.getElementById("clearHistoryBtn").addEventListener("click", () => {
       if (!currentProjectId) return;
       clearHistory(currentProjectId);
+
       if (timelineChart) timelineChart.destroy();
       timelineChart = buildTimelineChart(
         document.getElementById("timelineChart").getContext("2d"),
         []
       );
+
       setStatus("Historikk tømt (lokalt). Oppdater data for å bygge trend på nytt.");
     });
 
