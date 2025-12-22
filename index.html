@@ -173,6 +173,13 @@
         <canvas id="statusChart"></canvas>
         <p class="small-text">Basert på feltet <code>topic_status</code>.</p>
       </div>
+
+      <!-- NY CARD: Tidslinje-graf -->
+      <div class="card">
+        <h2>Topics Over Time</h2>
+        <canvas id="timeChart"></canvas>
+        <p class="small-text">Kumulativ vekst basert på <code>creation_date</code> (gruppért per måned).</p>
+      </div>
     </div>
   </main>
 
@@ -183,11 +190,12 @@
     let typeChart = null;
     let priorityChart = null;
     let statusChart = null;
+    let timeChart = null; // NY: For tidslinje-graf
 
     // Region-host
     const TOPICS_API_BASE = "https://open21.connect.trimble.com"; // <-- ENDRE VED BEHOV
 
-    // Fargekart
+    // Fargekart (uendret)
     const STATUS_COLORS = {
       "New": "#3684D1",
       "In Progress": "#FCC603",
@@ -210,6 +218,9 @@
     };
 
     const DEFAULT_BAR_COLOR = "#999999";
+
+    // NY: Farge for tidslinje (kan utvides med flere linjer, f.eks. per type)
+    const TIME_LINE_COLOR = "#0078d4";
 
     function setStatus(message, isLoading = false) {
       const statusEl = document.getElementById("status");
@@ -240,7 +251,7 @@
       return counts;
     }
 
-    // Nå med støtte for fargekart
+    // Nå med støtte for fargekart (uendret)
     function buildBarChart(ctx, title, counts, colorMap) {
       const labels = Object.keys(counts);
       const data = labels.map(l => counts[l]);
@@ -318,6 +329,80 @@
       });
     }
 
+    // NY: Funksjon for å bygge tidslinje-graf (kumulativ line chart)
+    function buildLineChart(ctx, topics) {
+      // Sorter topics etter creation_date (fall back til nå hvis mangler)
+      topics.sort((a, b) => {
+        const dateA = new Date(a.creation_date || Date.now());
+        const dateB = new Date(b.creation_date || Date.now());
+        return dateA - dateB;
+      });
+
+      // Grupper per måned (YYYY-MM) for bedre skalering; endre til 'YYYY-MM-DD' for dager
+      const monthlyCounts = {};
+      let cumulative = 0;
+      topics.forEach(t => {
+        const date = new Date(t.creation_date || Date.now());
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        monthlyCounts[monthKey] = (monthlyCounts[monthKey] || 0) + 1;
+      });
+
+      // Bygg kumulativ data
+      const labels = Object.keys(monthlyCounts).sort();
+      const data = [];
+      labels.forEach(label => {
+        cumulative += monthlyCounts[label];
+        data.push(cumulative);
+      });
+
+      if (!labels.length) {
+        return new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: ["Ingen data"],
+            datasets: [{
+              label: "Kumulativt antall",
+              data: [0]
+            }]
+          }
+        });
+      }
+
+      return new Chart(ctx, {
+        type: "line",
+        data: {
+          labels,
+          datasets: [{
+            label: "Kumulativt antall topics",
+            data,
+            borderColor: TIME_LINE_COLOR,
+            backgroundColor: `${TIME_LINE_COLOR}40`, // Semi-transparent fill
+            fill: true,
+            tension: 0.1
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            title: { display: false }
+          },
+          scales: {
+            x: {
+              ticks: {
+                font: { size: 11 },
+                maxRotation: 45
+              }
+            },
+            y: {
+              beginAtZero: true,
+              ticks: { precision: 0 }
+            }
+          }
+        }
+      });
+    }
+
     async function fetchTopics(projectId) {
       if (!accessToken) {
         throw new Error("Mangler accessToken – kunne ikke hente Topics.");
@@ -353,6 +438,7 @@
       if (typeChart) typeChart.destroy();
       if (priorityChart) priorityChart.destroy();
       if (statusChart) statusChart.destroy();
+      if (timeChart) timeChart.destroy(); // NY: Destroy for oppdatering
 
       const typeCounts = countByKey(
         topics,
@@ -373,11 +459,15 @@
       const typeCtx = document.getElementById("typeChart").getContext("2d");
       const priorityCtx = document.getElementById("priorityChart").getContext("2d");
       const statusCtx = document.getElementById("statusChart").getContext("2d");
+      const timeCtx = document.getElementById("timeChart").getContext("2d"); // NY: Context for tidslinje
 
       // Knytter riktig fargekart til hver graf
       typeChart = buildBarChart(typeCtx, "Topics per Type", typeCounts, TYPE_COLORS);
       priorityChart = buildBarChart(priorityCtx, "Topics per Priority", priorityCounts, PRIORITY_COLORS);
       statusChart = buildBarChart(statusCtx, "Topics per Status", statusCounts, STATUS_COLORS);
+
+      // NY: Bygg tidslinje-graf
+      timeChart = buildLineChart(timeCtx, topics);
     }
 
     async function refreshData() {
