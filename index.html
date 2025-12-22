@@ -2,7 +2,7 @@
 <html lang="nb">
 <head>
   <meta charset="UTF-8" />
-  <title>BCF Topic Stats</title>
+  <title>NorTop</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <!-- Trimble Connect Workspace API -->
@@ -21,44 +21,18 @@
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
 
-    body{
-      margin:0;
-      background:var(--bg);
-      color:var(--text);
-      min-height:100vh;
-      display:flex;
-      flex-direction:column;
-    }
+    body{ margin:0; background:var(--bg); color:var(--text); min-height:100vh; display:flex; flex-direction:column; }
 
-    /* ====== HEADER (logo + overskrift) ====== */
     header{
-      display:flex;
-      align-items:center;
-      gap:14px;
-      padding:12px 14px;
-      background:var(--card);
-      border-bottom:1px solid var(--border);
+      display:flex; align-items:center; gap:14px;
+      padding:12px 14px; background:var(--card); border-bottom:1px solid var(--border);
     }
-
     .logoBox{
-      width:92px;
-      height:92px;
-      border-radius:12px;
-      background:#fff;
-      border:1px solid #eee;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      overflow:hidden;
-      box-shadow:0 1px 3px rgba(15,23,42,.08);
-      flex:0 0 auto;
+      width:92px; height:92px; border-radius:12px; background:#fff; border:1px solid #eee;
+      display:flex; align-items:center; justify-content:center; overflow:hidden;
+      box-shadow:0 1px 3px rgba(15,23,42,.08); flex:0 0 auto;
     }
-    .logoBox img{
-      width:84px;
-      height:84px;
-      object-fit:contain;
-      display:block;
-    }
+    .logoBox img{ width:84px; height:84px; object-fit:contain; display:block; }
 
     .titleBlock{ display:flex; flex-direction:column; gap:2px; }
     .title{ font-weight:800; font-size:18px; color:var(--primary); line-height:1.1; }
@@ -66,68 +40,33 @@
     .dev{ font-size:11px; opacity:.75; font-style:italic; }
 
     .headerRight{
-      margin-left:auto;
-      display:flex;
-      align-items:center;
-      gap:10px;
-      flex-wrap:wrap;
-      justify-content:flex-end;
+      margin-left:auto; display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:flex-end;
     }
     #status{
-      font-size:12px;
-      opacity:.85;
-      white-space:nowrap;
-      max-width:520px;
-      overflow:hidden;
-      text-overflow:ellipsis;
+      font-size:12px; opacity:.85; white-space:nowrap; max-width:520px; overflow:hidden; text-overflow:ellipsis;
     }
 
     button{
-      padding:8px 10px;
-      border-radius:8px;
-      border:1px solid var(--primary);
-      background:var(--primary);
-      color:#fff;
-      font-size:13px;
-      font-weight:600;
-      cursor:pointer;
+      padding:8px 10px; border-radius:8px; border:1px solid var(--primary);
+      background:var(--primary); color:#fff; font-size:13px; font-weight:600; cursor:pointer;
       box-shadow:0 1px 2px rgba(0,0,0,.08);
     }
-    button.secondary{
-      border:1px solid #777;
-      background:#777;
-    }
+    button.secondary{ border:1px solid #777; background:#777; }
     button:disabled{ opacity:.6; cursor:default; }
 
     .loading-spinner{
-      display:inline-block;
-      width:12px;
-      height:12px;
-      border-radius:50%;
-      border:2px solid #ccc;
-      border-top-color:var(--primary);
-      animation:spin .8s linear infinite;
-      margin-right:6px;
-      vertical-align:-2px;
+      display:inline-block; width:12px; height:12px; border-radius:50%;
+      border:2px solid #ccc; border-top-color:var(--primary);
+      animation:spin .8s linear infinite; margin-right:6px; vertical-align:-2px;
     }
     @keyframes spin{ to{ transform:rotate(360deg);} }
 
     main{
-      flex:1;
-      display:flex;
-      flex-direction:column;
-      padding:12px 14px 18px 14px;
-      gap:12px;
-      overflow:auto;
+      flex:1; display:flex; flex-direction:column; padding:12px 14px 18px 14px; gap:12px; overflow:auto;
     }
+    #error{ font-size:13px; color:#b00020; white-space:pre-wrap; }
 
-    #error{
-      font-size:13px;
-      color:#b00020;
-      white-space:pre-wrap;
-    }
-
-    /* Linje mellom grafer: grid med border rundt + border mellom celler */
+    /* Linje mellom grafer */
     .cards{
       display:grid;
       grid-template-columns:repeat(auto-fit, minmax(360px, 1fr));
@@ -137,47 +76,42 @@
       overflow:hidden;
       background:var(--card);
     }
-
     .card{
       background:var(--card);
       padding:12px 12px 14px 12px;
       display:flex;
       flex-direction:column;
-      min-height:260px;
+      min-height:280px;
       border-right:1px solid var(--border);
       border-bottom:1px solid var(--border);
     }
+    .card h2{ margin:0 0 8px 0; font-size:14px; font-weight:800; }
+    .divider{ height:1px; background:var(--border); margin:8px 0 10px 0; }
+    .small-text{ font-size:12px; color:#6b7280; margin-top:8px; }
+    canvas{ width:100% !important; height:280px !important; }
 
-    .card h2{
-      margin:0 0 8px 0;
-      font-size:14px;
-      font-weight:800;
+    /* Filter */
+    .filterRow{
+      display:flex;
+      gap:10px;
+      align-items:flex-end;
+      flex-wrap:wrap;
+      padding:10px 12px;
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:14px;
     }
-
-    .divider{
-      height:1px;
-      background:var(--border);
-      margin:8px 0 10px 0;
+    .field{ display:flex; flex-direction:column; gap:4px; }
+    .field label{ font-size:12px; color:#6b7280; font-weight:700; }
+    select{
+      padding:8px 10px;
+      border-radius:10px;
+      border:1px solid var(--border);
+      background:#fff;
+      font-size:13px;
+      min-width:220px;
     }
-
-    .small-text{
-      font-size:12px;
-      color:#6b7280;
-      margin-top:8px;
-    }
-
-    canvas{
-      width:100% !important;
-      height:260px !important;
-    }
-
-    code{
-      background:#f3f4f6;
-      padding:1px 5px;
-      border-radius:6px;
-      border:1px solid #e5e7eb;
-      font-size:12px;
-    }
+    .hint{ font-size:12px; color:#6b7280; margin-left:auto; }
   </style>
 </head>
 
@@ -189,7 +123,7 @@
     </div>
 
     <div class="titleBlock">
-      <div class="title">BCF Topic Stats</div>
+      <div class="title">NorTop</div>
       <div class="org">Norconsult Norge</div>
       <div class="dev">Developed by Edin Dzakmic, Norconsult, (AI-assisted development)</div>
     </div>
@@ -203,41 +137,49 @@
   <main>
     <div id="error"></div>
 
+    <!-- Velg uke -->
+    <div class="filterRow">
+      <div class="field">
+        <label for="weekSelect">Velg uke (basert på opprettetdato)</label>
+        <select id="weekSelect">
+          <option value="">Alle uker</option>
+        </select>
+      </div>
+
+      <button class="secondary" id="applyWeekBtn" title="Tegner grafer kun for valgt uke">Bruk uke-filter</button>
+
+      <div class="hint">
+        Tips: “Alle uker” viser trend over tid. Velger du uke, viser grafene kun topics opprettet den uken.
+      </div>
+    </div>
+
     <div class="cards">
       <div class="card">
         <h2>Opprettede Topics over tid</h2>
         <div class="divider"></div>
         <canvas id="createdOverTimeChart"></canvas>
-        <div class="small-text">
-          Bygger på <code>creation_date</code> for alle BCF Topics.
-        </div>
+        <div class="small-text">Bygger på <code>creation_date</code> (gruppe per uke).</div>
       </div>
 
       <div class="card">
-        <h2>Opprettede Topics over tid – Status</h2>
+        <h2>Topics per Status over tid (linje + stolper)</h2>
         <div class="divider"></div>
-        <canvas id="createdByStatusChart"></canvas>
-        <div class="small-text">
-          Stacked per periode (basert på topics opprettet i perioden, fordelt på dagens status).
-        </div>
+        <canvas id="statusLineBarChart"></canvas>
+        <div class="small-text">Stolper per status + trendlinjer (per status) over tid.</div>
       </div>
 
       <div class="card">
-        <h2>Opprettede Topics over tid – Type</h2>
+        <h2>Topics per Type over tid (linje + stolper)</h2>
         <div class="divider"></div>
-        <canvas id="createdByTypeChart"></canvas>
-        <div class="small-text">
-          Stacked per periode (basert på <code>topic_type</code>/<code>type</code>).
-        </div>
+        <canvas id="typeLineBarChart"></canvas>
+        <div class="small-text">Stolper per type + trendlinjer (per type) over tid.</div>
       </div>
 
       <div class="card">
-        <h2>Opprettede Topics over tid – Priority</h2>
+        <h2>Topics per Priority over tid (linje + stolper)</h2>
         <div class="divider"></div>
-        <canvas id="createdByPriorityChart"></canvas>
-        <div class="small-text">
-          Stacked per periode (basert på <code>priority</code>).
-        </div>
+        <canvas id="priorityLineBarChart"></canvas>
+        <div class="small-text">Stolper per priority + trendlinjer (per priority) over tid.</div>
       </div>
 
       <div class="card">
@@ -245,8 +187,7 @@
         <div class="divider"></div>
         <canvas id="avgCycleTimeChart"></canvas>
         <div class="small-text">
-          Beregnes for topics med status <code>Closed/Done/Resolved/Approved</code> som
-          <code>modified_date - creation_date</code> (dager). Linje viser snitt per periode + globalt snitt.
+          For topics med status <code>Closed/Done/Resolved/Approved</code>: <code>modified_date - creation_date</code> i dager.
         </div>
       </div>
     </div>
@@ -254,17 +195,12 @@
 
   <script>
     // ====== KONFIG ======
-    // Bytt til "day" hvis du vil ha dag-for-dag. "week" er ofte best.
-    const GROUP_BY = "week"; // "day" | "week" | "month"
-
-    // Host for BCF API (endre hvis din tenant krever annet)
+    const GROUP_BY = "week"; // uke-basert (ukevelgeren bygger på dette)
     const TOPICS_API_BASE = "https://open21.connect.trimble.com";
 
-    // Status mapping
     const CLOSED_STATUSES = new Set(["Closed", "Done", "Resolved", "Approved"]);
     const UNKNOWN_LABEL = "Ikke satt";
 
-    // (Valgfritt) Fargekart – hvis ikke finnes, bruker vi auto-farger fra Chart.js.
     const STATUS_COLORS = {
       "New": "#3684D1",
       "Open": "#FCC603",
@@ -294,10 +230,14 @@
     let currentProjectId = null;
 
     let createdOverTimeChart = null;
-    let createdByStatusChart = null;
-    let createdByTypeChart = null;
-    let createdByPriorityChart = null;
+    let statusLineBarChart = null;
+    let typeLineBarChart = null;
+    let priorityLineBarChart = null;
     let avgCycleTimeChart = null;
+
+    // cache topics
+    let allTopics = [];
+    let allTopicsWithDates = [];
 
     // ====== HELPERS ======
     function escapeHtml(str) {
@@ -308,37 +248,24 @@
         .replaceAll('"', "&quot;")
         .replaceAll("'", "&#039;");
     }
-
     function setStatus(message, isLoading = false) {
       const el = document.getElementById("status");
       el.innerHTML = isLoading
         ? `<span class="loading-spinner"></span>${escapeHtml(message)}`
         : escapeHtml(message);
     }
+    function setError(message) { document.getElementById("error").textContent = message || ""; }
+    function setBusy(isBusy) { document.getElementById("refreshBtn").disabled = isBusy; }
 
-    function setError(message) {
-      document.getElementById("error").textContent = message || "";
-    }
-
-    function setBusy(isBusy) {
-      document.getElementById("refreshBtn").disabled = isBusy;
-    }
-
-    function safeStr(v) {
-      if (v === null || v === undefined) return "";
-      return String(v).trim();
-    }
-
+    function safeStr(v) { return (v === null || v === undefined) ? "" : String(v).trim(); }
     function parseDateMaybe(v) {
       const s = safeStr(v);
       if (!s) return null;
       const d = new Date(s);
       return Number.isNaN(d.getTime()) ? null : d;
     }
-
     function pad2(n){ return String(n).padStart(2,"0"); }
 
-    // ISO week key: YYYY-Www
     function getISOWeekKey(date) {
       const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
       const dayNum = d.getUTCDay() || 7;
@@ -349,13 +276,9 @@
     }
 
     function bucketKey(date) {
-      if (GROUP_BY === "day") {
-        return `${date.getFullYear()}-${pad2(date.getMonth()+1)}-${pad2(date.getDate())}`;
-      }
-      if (GROUP_BY === "month") {
-        return `${date.getFullYear()}-${pad2(date.getMonth()+1)}`;
-      }
-      return getISOWeekKey(date); // week
+      if (GROUP_BY === "week") return getISOWeekKey(date);
+      // (ikke brukt her, men klar hvis du vil senere)
+      return `${date.getFullYear()}-${pad2(date.getMonth()+1)}-${pad2(date.getDate())}`;
     }
 
     function uniqueSorted(arr) {
@@ -369,10 +292,27 @@
     }
 
     // ====== DATA AGGREGATION (basert på creation_date) ======
-    function aggregateCreatedCounts(topics, getCategory) {
-      // returns: { labels: [bucket...], seriesKeys:[...], seriesMap:{key:[counts...]}, total:[counts...] }
-      const bucketMap = new Map(); // bucket -> {total, byKey:{k:count}}
+    function aggregateCreatedTotal(topics) {
       const buckets = [];
+      const bucketMap = new Map(); // b -> count
+
+      for (const t of topics) {
+        const cd = parseDateMaybe(t.creation_date);
+        if (!cd) continue;
+        const b = bucketKey(cd);
+        buckets.push(b);
+        bucketMap.set(b, (bucketMap.get(b) || 0) + 1);
+      }
+
+      const labels = uniqueSorted(buckets);
+      const totals = labels.map(b => bucketMap.get(b) || 0);
+      return { labels, totals };
+    }
+
+    function aggregateCreatedByCategory(topics, getCategory) {
+      // bucket -> {cat:count}
+      const buckets = [];
+      const bucketMap = new Map();
 
       for (const t of topics) {
         const cd = parseDateMaybe(t.creation_date);
@@ -382,11 +322,9 @@
 
         const cat = safeStr(getCategory(t)) || UNKNOWN_LABEL;
 
-        if (!bucketMap.has(b)) bucketMap.set(b, { total: 0, byKey: {} });
+        if (!bucketMap.has(b)) bucketMap.set(b, {});
         const obj = bucketMap.get(b);
-
-        obj.total += 1;
-        obj.byKey[cat] = (obj.byKey[cat] || 0) + 1;
+        obj[cat] = (obj[cat] || 0) + 1;
       }
 
       const labels = uniqueSorted(buckets);
@@ -394,23 +332,20 @@
       // union keys
       const keySet = new Set();
       for (const b of labels) {
-        const o = bucketMap.get(b);
-        if (!o) continue;
-        Object.keys(o.byKey).forEach(k => keySet.add(k));
+        const obj = bucketMap.get(b) || {};
+        Object.keys(obj).forEach(k => keySet.add(k));
       }
-      const seriesKeys = [...keySet].sort((a,b) => a.localeCompare(b));
+      const keys = [...keySet].sort((a,b)=>a.localeCompare(b));
 
-      const total = labels.map(b => bucketMap.get(b)?.total || 0);
+      // build series arrays
       const seriesMap = {};
-      for (const k of seriesKeys) {
-        seriesMap[k] = labels.map(b => (bucketMap.get(b)?.byKey?.[k] || 0));
-      }
+      for (const k of keys) seriesMap[k] = labels.map(b => (bucketMap.get(b)?.[k] || 0));
 
-      return { labels, seriesKeys, seriesMap, total };
+      return { labels, keys, seriesMap };
     }
 
     function aggregateAvgCycleTime(topics) {
-      // per created-bucket: avg days (for topics that are now closed)
+      // per created-week: avg days (for topics that are now closed)
       const bucketMap = new Map(); // bucket -> [days...]
       const allDays = [];
 
@@ -442,19 +377,16 @@
       const globalAvg = avg(allDays);
       const globalLine = labels.map(_ => globalAvg === null ? null : Math.round(globalAvg));
 
-      return { labels, series, globalLine, globalAvg };
+      return { labels, series, globalLine };
     }
 
-    // ====== CHART BUILDERS ======
+    // ====== CHART HELPERS ======
     function destroyIf(c){ if (c) c.destroy(); return null; }
 
     function buildCreatedOverTime(ctx, labels, totals) {
       return new Chart(ctx, {
         type: "bar",
-        data: {
-          labels,
-          datasets: [{ label: "Opprettede topics", data: totals }]
-        },
+        data: { labels, datasets: [{ label: "Opprettede topics", data: totals }] },
         options: {
           responsive: true,
           plugins: { legend: { display: true } },
@@ -466,25 +398,43 @@
       });
     }
 
-    function buildStacked(ctx, labels, seriesKeys, seriesMap, colorMap) {
-      const datasets = seriesKeys.map(k => {
+    // "Linje diagram som inneholder stolper for hver type"
+    // -> Combo chart: bar + line for hver kategori
+    function buildLineWithBars(ctx, labels, keys, seriesMap, colorMap, yTitle) {
+      const datasets = [];
+
+      for (const k of keys) {
         const color = (colorMap && colorMap[k]) ? colorMap[k] : undefined;
-        return {
-          label: k,
+
+        // Stolper for hver kategori
+        datasets.push({
+          type: "bar",
+          label: `${k} (stolpe)`,
           data: seriesMap[k],
-          backgroundColor: color
-        };
-      });
+          backgroundColor: color,
+          borderColor: color,
+          borderWidth: 1
+        });
+
+        // Linje for samme kategori (trend)
+        datasets.push({
+          type: "line",
+          label: `${k} (linje)`,
+          data: seriesMap[k],
+          tension: 0.25,
+          borderColor: color,
+          pointRadius: 2
+        });
+      }
 
       return new Chart(ctx, {
-        type: "bar",
         data: { labels, datasets },
         options: {
           responsive: true,
           plugins: { legend: { display: true } },
           scales: {
-            x: { stacked: true, ticks: { maxRotation: 45, minRotation: 0, autoSkip: true } },
-            y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } }
+            x: { ticks: { maxRotation: 45, minRotation: 0, autoSkip: true } },
+            y: { beginAtZero: true, ticks: { precision: 0 }, title: { display: !!yTitle, text: yTitle || "" } }
           }
         }
       });
@@ -496,7 +446,7 @@
         data: {
           labels,
           datasets: [
-            { label: "Snitt per periode (dager)", data: series, tension: 0.25 },
+            { label: "Snitt per uke (dager)", data: series, tension: 0.25 },
             { label: "Globalt snitt (dager)", data: globalLine, tension: 0, borderDash: [6,4] }
           ]
         },
@@ -508,6 +458,38 @@
             y: { beginAtZero: true, ticks: { precision: 0 } }
           }
         }
+      });
+    }
+
+    // ====== UI: UKEVELGER ======
+    function populateWeekSelect(topics) {
+      const weeks = [];
+      for (const t of topics) {
+        const cd = parseDateMaybe(t.creation_date);
+        if (!cd) continue;
+        weeks.push(bucketKey(cd));
+      }
+      const uniqueWeeks = uniqueSorted(weeks);
+
+      const sel = document.getElementById("weekSelect");
+      const current = sel.value;
+
+      // reset options (behold "Alle uker")
+      sel.innerHTML = `<option value="">Alle uker</option>` +
+        uniqueWeeks.map(w => `<option value="${escapeHtml(w)}">${escapeHtml(w)}</option>`).join("");
+
+      // prøv å beholde valgt uke
+      if (current && uniqueWeeks.includes(current)) sel.value = current;
+    }
+
+    function getFilteredTopicsByWeek(topics) {
+      const selectedWeek = document.getElementById("weekSelect").value;
+      if (!selectedWeek) return topics;
+
+      return topics.filter(t => {
+        const cd = parseDateMaybe(t.creation_date);
+        if (!cd) return false;
+        return bucketKey(cd) === selectedWeek;
       });
     }
 
@@ -530,57 +512,59 @@
       return Array.isArray(json) ? json : [];
     }
 
-    // ====== MAIN UPDATE ======
-    function updateAllCharts(topics) {
-      // 1) Created over time (total)
-      const createdAgg = aggregateCreatedCounts(topics, _ => "TOTAL");
-      // createdAgg.total gives total per bucket; labels in createdAgg.labels
+    // ====== RENDER ======
+    function renderAllCharts(topicsToUse) {
+      // 1) Total created over time (uke)
+      const totalAgg = aggregateCreatedTotal(topicsToUse);
       createdOverTimeChart = destroyIf(createdOverTimeChart);
       createdOverTimeChart = buildCreatedOverTime(
         document.getElementById("createdOverTimeChart").getContext("2d"),
-        createdAgg.labels,
-        createdAgg.total
+        totalAgg.labels,
+        totalAgg.totals
       );
 
-      // 2) Stacked: Status / Type / Priority (based on creation_date)
-      const byStatus = aggregateCreatedCounts(topics, t => (t.topic_status || t.status));
-      createdByStatusChart = destroyIf(createdByStatusChart);
-      createdByStatusChart = buildStacked(
-        document.getElementById("createdByStatusChart").getContext("2d"),
+      // 2) Combo charts (bar+line) per status/type/priority
+      const byStatus = aggregateCreatedByCategory(topicsToUse, t => (t.topic_status || t.status));
+      statusLineBarChart = destroyIf(statusLineBarChart);
+      statusLineBarChart = buildLineWithBars(
+        document.getElementById("statusLineBarChart").getContext("2d"),
         byStatus.labels,
-        byStatus.seriesKeys,
+        byStatus.keys,
         byStatus.seriesMap,
-        STATUS_COLORS
+        STATUS_COLORS,
+        "Antall"
       );
 
-      const byType = aggregateCreatedCounts(topics, t => (t.topic_type || t.type));
-      createdByTypeChart = destroyIf(createdByTypeChart);
-      createdByTypeChart = buildStacked(
-        document.getElementById("createdByTypeChart").getContext("2d"),
+      const byType = aggregateCreatedByCategory(topicsToUse, t => (t.topic_type || t.type));
+      typeLineBarChart = destroyIf(typeLineBarChart);
+      typeLineBarChart = buildLineWithBars(
+        document.getElementById("typeLineBarChart").getContext("2d"),
         byType.labels,
-        byType.seriesKeys,
+        byType.keys,
         byType.seriesMap,
-        TYPE_COLORS
+        TYPE_COLORS,
+        "Antall"
       );
 
-      const byPriority = aggregateCreatedCounts(topics, t => (t.priority));
-      createdByPriorityChart = destroyIf(createdByPriorityChart);
-      createdByPriorityChart = buildStacked(
-        document.getElementById("createdByPriorityChart").getContext("2d"),
+      const byPriority = aggregateCreatedByCategory(topicsToUse, t => (t.priority));
+      priorityLineBarChart = destroyIf(priorityLineBarChart);
+      priorityLineBarChart = buildLineWithBars(
+        document.getElementById("priorityLineBarChart").getContext("2d"),
         byPriority.labels,
-        byPriority.seriesKeys,
+        byPriority.keys,
         byPriority.seriesMap,
-        PRIORITY_COLORS
+        PRIORITY_COLORS,
+        "Antall"
       );
 
-      // 3) Avg cycle time (created-bucket)
-      const cycle = aggregateAvgCycleTime(topics);
+      // 3) Avg cycle time
+      const cycleAgg = aggregateAvgCycleTime(topicsToUse);
       avgCycleTimeChart = destroyIf(avgCycleTimeChart);
       avgCycleTimeChart = buildAvgCycle(
         document.getElementById("avgCycleTimeChart").getContext("2d"),
-        cycle.labels,
-        cycle.series,
-        cycle.globalLine
+        cycleAgg.labels,
+        cycleAgg.series,
+        cycleAgg.globalLine
       );
     }
 
@@ -590,19 +574,21 @@
       setStatus("Henter BCF Topics …", true);
 
       try {
-        const topics = await fetchTopics(currentProjectId);
+        allTopics = await fetchTopics(currentProjectId);
+        allTopicsWithDates = allTopics.filter(t => !!parseDateMaybe(t.creation_date));
 
-        // Filter bort topics uten creation_date (hvis noen mangler)
-        const topicsWithDates = topics.filter(t => !!parseDateMaybe(t.creation_date));
-
-        if (!topicsWithDates.length) {
+        if (!allTopicsWithDates.length) {
           setError("Fant ingen topics med creation_date. Sjekk at BCF API returnerer creation_date i ditt miljø.");
           setStatus("Ingen data.");
           return;
         }
 
-        updateAllCharts(topicsWithDates);
-        setStatus(`Sist oppdatert: ${new Date().toLocaleString()} | Topics: ${topicsWithDates.length} | GroupBy: ${GROUP_BY}`);
+        populateWeekSelect(allTopicsWithDates);
+
+        // Default: render med alle uker
+        renderAllCharts(allTopicsWithDates);
+
+        setStatus(`Sist oppdatert: ${new Date().toLocaleString()} | Topics: ${allTopicsWithDates.length}`);
       } catch (err) {
         console.error(err);
         setError("Feil ved henting av Topics: " + (err.message || err));
@@ -671,6 +657,17 @@
         setStatus("Feil ved initialisering.");
       }
     }
+
+    // Uke-filter knapp
+    document.getElementById("applyWeekBtn").addEventListener("click", () => {
+      if (!allTopicsWithDates.length) return;
+      const filtered = getFilteredTopicsByWeek(allTopicsWithDates);
+      renderAllCharts(filtered);
+
+      const selected = document.getElementById("weekSelect").value;
+      if (selected) setStatus(`Filter: ${selected} | Topics: ${filtered.length}`);
+      else setStatus(`Alle uker | Topics: ${filtered.length}`);
+    });
 
     document.getElementById("refreshBtn").addEventListener("click", refreshData);
     window.addEventListener("DOMContentLoaded", init);
