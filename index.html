@@ -2,7 +2,7 @@
 <html lang="nb">
 <head>
   <meta charset="UTF-8" />
-  <title>NorTop</title>
+  <title>BCF Topic Stats</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <!-- Trimble Connect Workspace API -->
@@ -123,7 +123,7 @@
     </div>
 
     <div class="titleBlock">
-      <div class="title">NorTop</div>
+      <div class="title">BCF Topic Stats</div>
       <div class="org">Norconsult Norge</div>
       <div class="dev">Developed by Edin Dzakmic, Norconsult, (AI-assisted development)</div>
     </div>
@@ -137,19 +137,26 @@
   <main>
     <div id="error"></div>
 
-    <!-- Velg uke -->
+    <!-- Velg fra/til uke -->
     <div class="filterRow">
       <div class="field">
-        <label for="weekSelect">Velg uke (basert på opprettetdato)</label>
-        <select id="weekSelect">
-          <option value="">Alle uker</option>
+        <label for="fromWeekSelect">Fra uke</label>
+        <select id="fromWeekSelect">
+          <option value="">(ingen)</option>
         </select>
       </div>
 
-      <button class="secondary" id="applyWeekBtn" title="Tegner grafer kun for valgt uke">Bruk uke-filter</button>
+      <div class="field">
+        <label for="toWeekSelect">Til uke</label>
+        <select id="toWeekSelect">
+          <option value="">(ingen)</option>
+        </select>
+      </div>
+
+      <button class="secondary" id="applyWeekBtn" title="Tegner grafer for valgt ukeintervall">Bruk ukeintervall</button>
 
       <div class="hint">
-        Tips: “Alle uker” viser trend over tid. Velger du uke, viser grafene kun topics opprettet den uken.
+        Hvis “Fra” og “Til” er tomme → alle uker.
       </div>
     </div>
 
@@ -162,24 +169,33 @@
       </div>
 
       <div class="card">
-        <h2>Topics per Status over tid (linje + stolper)</h2>
+        <h2>Topics per Status over tid (linje)</h2>
         <div class="divider"></div>
-        <canvas id="statusLineBarChart"></canvas>
-        <div class="small-text">Stolper per status + trendlinjer (per status) over tid.</div>
+        <canvas id="statusLineChart"></canvas>
+        <div class="small-text">Linjer per status (antall opprettet per uke).</div>
       </div>
 
       <div class="card">
-        <h2>Topics per Type over tid (linje + stolper)</h2>
+        <h2>Topics per Type over tid (linje)</h2>
         <div class="divider"></div>
-        <canvas id="typeLineBarChart"></canvas>
-        <div class="small-text">Stolper per type + trendlinjer (per type) over tid.</div>
+        <canvas id="typeLineChart"></canvas>
+        <div class="small-text">Linjer per type (antall opprettet per uke).</div>
       </div>
 
       <div class="card">
-        <h2>Topics per Priority over tid (linje + stolper)</h2>
+        <h2>Topics per Priority over tid (linje)</h2>
         <div class="divider"></div>
-        <canvas id="priorityLineBarChart"></canvas>
-        <div class="small-text">Stolper per priority + trendlinjer (per priority) over tid.</div>
+        <canvas id="priorityLineChart"></canvas>
+        <div class="small-text">Linjer per priority (antall opprettet per uke).</div>
+      </div>
+
+      <div class="card">
+        <h2>Fordeling per fag (Tag)</h2>
+        <div class="divider"></div>
+        <canvas id="tagDisciplineChart"></canvas>
+        <div class="small-text">
+          Basert på tag (f.eks. “Veg”, “VAO”, osv.). Hvis flere tags finnes på samme topic kan den telle flere ganger.
+        </div>
       </div>
 
       <div class="card">
@@ -195,12 +211,13 @@
 
   <script>
     // ====== KONFIG ======
-    const GROUP_BY = "week"; // uke-basert (ukevelgeren bygger på dette)
     const TOPICS_API_BASE = "https://open21.connect.trimble.com";
+    const GROUP_BY = "week";
 
     const CLOSED_STATUSES = new Set(["Closed", "Done", "Resolved", "Approved"]);
     const UNKNOWN_LABEL = "Ikke satt";
 
+    // (Valgfritt) farger
     const STATUS_COLORS = {
       "New": "#3684D1",
       "Open": "#FCC603",
@@ -209,20 +226,8 @@
       "Done": "#36B7D1",
       "Closed": "#36B7D1"
     };
-
-    const TYPE_COLORS = {
-      "Issue": "#FF0000",
-      "Clash": "#F908E9",
-      "Request": "#FFFF00"
-    };
-
-    const PRIORITY_COLORS = {
-      "Low": "#72A544",
-      "Normal": "#005F9E",
-      "Medium": "#005F9E",
-      "High": "#FFBE00",
-      "Critical": "#C81922"
-    };
+    const TYPE_COLORS = { "Issue": "#FF0000", "Clash": "#F908E9", "Request": "#FFFF00" };
+    const PRIORITY_COLORS = { "Low": "#72A544", "Normal": "#005F9E", "Medium": "#005F9E", "High": "#FFBE00", "Critical": "#C81922" };
 
     // ====== STATE ======
     let API = null;
@@ -230,12 +235,12 @@
     let currentProjectId = null;
 
     let createdOverTimeChart = null;
-    let statusLineBarChart = null;
-    let typeLineBarChart = null;
-    let priorityLineBarChart = null;
+    let statusLineChart = null;
+    let typeLineChart = null;
+    let priorityLineChart = null;
+    let tagDisciplineChart = null;
     let avgCycleTimeChart = null;
 
-    // cache topics
     let allTopics = [];
     let allTopicsWithDates = [];
 
@@ -266,6 +271,7 @@
     }
     function pad2(n){ return String(n).padStart(2,"0"); }
 
+    // ISO week key: YYYY-Www
     function getISOWeekKey(date) {
       const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
       const dayNum = d.getUTCDay() || 7;
@@ -274,12 +280,7 @@
       const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
       return `${d.getUTCFullYear()}-W${pad2(weekNo)}`;
     }
-
-    function bucketKey(date) {
-      if (GROUP_BY === "week") return getISOWeekKey(date);
-      // (ikke brukt her, men klar hvis du vil senere)
-      return `${date.getFullYear()}-${pad2(date.getMonth()+1)}-${pad2(date.getDate())}`;
-    }
+    function bucketKey(date) { return getISOWeekKey(date); }
 
     function uniqueSorted(arr) {
       return [...new Set(arr)].sort((a,b) => a.localeCompare(b));
@@ -289,6 +290,50 @@
       const v = nums.filter(n => Number.isFinite(n));
       if (!v.length) return null;
       return v.reduce((a,b)=>a+b,0) / v.length;
+    }
+
+    function compareWeekKeys(a, b) {
+      // a/b: "YYYY-Www"
+      // Lexicographic works because fixed format, but we ensure:
+      return a.localeCompare(b);
+    }
+
+    // ====== FILTER: fra/til uke ======
+    function populateWeekRangeSelectors(topics) {
+      const weeks = [];
+      for (const t of topics) {
+        const cd = parseDateMaybe(t.creation_date);
+        if (!cd) continue;
+        weeks.push(bucketKey(cd));
+      }
+      const uniqueWeeks = uniqueSorted(weeks);
+
+      const fromSel = document.getElementById("fromWeekSelect");
+      const toSel = document.getElementById("toWeekSelect");
+      const prevFrom = fromSel.value;
+      const prevTo = toSel.value;
+
+      fromSel.innerHTML = `<option value="">(ingen)</option>` + uniqueWeeks.map(w => `<option value="${escapeHtml(w)}">${escapeHtml(w)}</option>`).join("");
+      toSel.innerHTML = `<option value="">(ingen)</option>` + uniqueWeeks.map(w => `<option value="${escapeHtml(w)}">${escapeHtml(w)}</option>`).join("");
+
+      if (prevFrom && uniqueWeeks.includes(prevFrom)) fromSel.value = prevFrom;
+      if (prevTo && uniqueWeeks.includes(prevTo)) toSel.value = prevTo;
+    }
+
+    function filterTopicsByWeekRange(topics) {
+      const from = document.getElementById("fromWeekSelect").value; // may be ""
+      const to = document.getElementById("toWeekSelect").value;     // may be ""
+      if (!from && !to) return topics;
+
+      return topics.filter(t => {
+        const cd = parseDateMaybe(t.creation_date);
+        if (!cd) return false;
+        const wk = bucketKey(cd);
+
+        if (from && compareWeekKeys(wk, from) < 0) return false;
+        if (to && compareWeekKeys(wk, to) > 0) return false;
+        return true;
+      });
     }
 
     // ====== DATA AGGREGATION (basert på creation_date) ======
@@ -310,9 +355,8 @@
     }
 
     function aggregateCreatedByCategory(topics, getCategory) {
-      // bucket -> {cat:count}
       const buckets = [];
-      const bucketMap = new Map();
+      const bucketMap = new Map(); // b -> {cat:count}
 
       for (const t of topics) {
         const cd = parseDateMaybe(t.creation_date);
@@ -329,7 +373,6 @@
 
       const labels = uniqueSorted(buckets);
 
-      // union keys
       const keySet = new Set();
       for (const b of labels) {
         const obj = bucketMap.get(b) || {};
@@ -337,15 +380,12 @@
       }
       const keys = [...keySet].sort((a,b)=>a.localeCompare(b));
 
-      // build series arrays
       const seriesMap = {};
       for (const k of keys) seriesMap[k] = labels.map(b => (bucketMap.get(b)?.[k] || 0));
-
       return { labels, keys, seriesMap };
     }
 
     function aggregateAvgCycleTime(topics) {
-      // per created-week: avg days (for topics that are now closed)
       const bucketMap = new Map(); // bucket -> [days...]
       const allDays = [];
 
@@ -376,8 +416,43 @@
 
       const globalAvg = avg(allDays);
       const globalLine = labels.map(_ => globalAvg === null ? null : Math.round(globalAvg));
-
       return { labels, series, globalLine };
+    }
+
+    // ====== TAG / FAG ======
+    function extractTags(topic) {
+      // BCF 3.0 kan ha "labels" (array). Noen APIer bruker "tags" eller "label".
+      // Vi sjekker flere muligheter robust:
+      const candidates = [];
+
+      if (Array.isArray(topic.labels)) candidates.push(...topic.labels);
+      if (Array.isArray(topic.tags)) candidates.push(...topic.tags);
+
+      const single = safeStr(topic.label || topic.tag || topic.discipline);
+      if (single) candidates.push(single);
+
+      // normaliser, fjern tomme, unike
+      return [...new Set(candidates.map(safeStr).filter(Boolean))];
+    }
+
+    function aggregateDisciplineByTag(topics) {
+      // teller topics per tag (innenfor filtrert periode)
+      const counts = {};
+      for (const t of topics) {
+        const tags = extractTags(t);
+        if (!tags.length) {
+          counts[UNKNOWN_LABEL] = (counts[UNKNOWN_LABEL] || 0) + 1;
+          continue;
+        }
+
+        // Du kan velge "tell kun første tag" hvis du vil:
+        // const first = tags[0]; counts[first] = (counts[first]||0)+1;
+        // Her teller vi alle tags på topic:
+        for (const tag of tags) {
+          counts[tag] = (counts[tag] || 0) + 1;
+        }
+      }
+      return counts;
     }
 
     // ====== CHART HELPERS ======
@@ -398,44 +473,39 @@
       });
     }
 
-    // "Linje diagram som inneholder stolper for hver type"
-    // -> Combo chart: bar + line for hver kategori
-    function buildLineWithBars(ctx, labels, keys, seriesMap, colorMap, yTitle) {
-      const datasets = [];
-
-      for (const k of keys) {
-        const color = (colorMap && colorMap[k]) ? colorMap[k] : undefined;
-
-        // Stolper for hver kategori
-        datasets.push({
-          type: "bar",
-          label: `${k} (stolpe)`,
-          data: seriesMap[k],
-          backgroundColor: color,
-          borderColor: color,
-          borderWidth: 1
-        });
-
-        // Linje for samme kategori (trend)
-        datasets.push({
-          type: "line",
-          label: `${k} (linje)`,
-          data: seriesMap[k],
-          tension: 0.25,
-          borderColor: color,
-          pointRadius: 2
-        });
-      }
+    function buildMultiLine(ctx, labels, keys, seriesMap, colorMap, legendTitle) {
+      const datasets = keys.map(k => ({
+        label: k,
+        data: seriesMap[k],
+        tension: 0.25,
+        borderColor: (colorMap && colorMap[k]) ? colorMap[k] : undefined,
+        pointRadius: 2
+      }));
 
       return new Chart(ctx, {
+        type: "line",
         data: { labels, datasets },
         options: {
           responsive: true,
-          plugins: { legend: { display: true } },
+          plugins: { legend: { display: true, title: { display: !!legendTitle, text: legendTitle || "" } } },
           scales: {
             x: { ticks: { maxRotation: 45, minRotation: 0, autoSkip: true } },
-            y: { beginAtZero: true, ticks: { precision: 0 }, title: { display: !!yTitle, text: yTitle || "" } }
+            y: { beginAtZero: true, ticks: { precision: 0 } }
           }
+        }
+      });
+    }
+
+    function buildPie(ctx, counts) {
+      const labels = Object.keys(counts);
+      const data = labels.map(l => counts[l]);
+
+      return new Chart(ctx, {
+        type: "pie",
+        data: { labels, datasets: [{ data }] },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: true } }
         }
       });
     }
@@ -446,8 +516,8 @@
         data: {
           labels,
           datasets: [
-            { label: "Snitt per uke (dager)", data: series, tension: 0.25 },
-            { label: "Globalt snitt (dager)", data: globalLine, tension: 0, borderDash: [6,4] }
+            { label: "Snitt per uke (dager)", data: series, tension: 0.25, pointRadius: 2 },
+            { label: "Globalt snitt (dager)", data: globalLine, tension: 0, borderDash: [6,4], pointRadius: 0 }
           ]
         },
         options: {
@@ -458,38 +528,6 @@
             y: { beginAtZero: true, ticks: { precision: 0 } }
           }
         }
-      });
-    }
-
-    // ====== UI: UKEVELGER ======
-    function populateWeekSelect(topics) {
-      const weeks = [];
-      for (const t of topics) {
-        const cd = parseDateMaybe(t.creation_date);
-        if (!cd) continue;
-        weeks.push(bucketKey(cd));
-      }
-      const uniqueWeeks = uniqueSorted(weeks);
-
-      const sel = document.getElementById("weekSelect");
-      const current = sel.value;
-
-      // reset options (behold "Alle uker")
-      sel.innerHTML = `<option value="">Alle uker</option>` +
-        uniqueWeeks.map(w => `<option value="${escapeHtml(w)}">${escapeHtml(w)}</option>`).join("");
-
-      // prøv å beholde valgt uke
-      if (current && uniqueWeeks.includes(current)) sel.value = current;
-    }
-
-    function getFilteredTopicsByWeek(topics) {
-      const selectedWeek = document.getElementById("weekSelect").value;
-      if (!selectedWeek) return topics;
-
-      return topics.filter(t => {
-        const cd = parseDateMaybe(t.creation_date);
-        if (!cd) return false;
-        return bucketKey(cd) === selectedWeek;
       });
     }
 
@@ -514,7 +552,7 @@
 
     // ====== RENDER ======
     function renderAllCharts(topicsToUse) {
-      // 1) Total created over time (uke)
+      // Total created over time
       const totalAgg = aggregateCreatedTotal(topicsToUse);
       createdOverTimeChart = destroyIf(createdOverTimeChart);
       createdOverTimeChart = buildCreatedOverTime(
@@ -523,41 +561,49 @@
         totalAgg.totals
       );
 
-      // 2) Combo charts (bar+line) per status/type/priority
+      // Multi-line: status / type / priority (kun linjer, ingen stolper)
       const byStatus = aggregateCreatedByCategory(topicsToUse, t => (t.topic_status || t.status));
-      statusLineBarChart = destroyIf(statusLineBarChart);
-      statusLineBarChart = buildLineWithBars(
-        document.getElementById("statusLineBarChart").getContext("2d"),
+      statusLineChart = destroyIf(statusLineChart);
+      statusLineChart = buildMultiLine(
+        document.getElementById("statusLineChart").getContext("2d"),
         byStatus.labels,
         byStatus.keys,
         byStatus.seriesMap,
         STATUS_COLORS,
-        "Antall"
+        "Status"
       );
 
       const byType = aggregateCreatedByCategory(topicsToUse, t => (t.topic_type || t.type));
-      typeLineBarChart = destroyIf(typeLineBarChart);
-      typeLineBarChart = buildLineWithBars(
-        document.getElementById("typeLineBarChart").getContext("2d"),
+      typeLineChart = destroyIf(typeLineChart);
+      typeLineChart = buildMultiLine(
+        document.getElementById("typeLineChart").getContext("2d"),
         byType.labels,
         byType.keys,
         byType.seriesMap,
         TYPE_COLORS,
-        "Antall"
+        "Type"
       );
 
       const byPriority = aggregateCreatedByCategory(topicsToUse, t => (t.priority));
-      priorityLineBarChart = destroyIf(priorityLineBarChart);
-      priorityLineBarChart = buildLineWithBars(
-        document.getElementById("priorityLineBarChart").getContext("2d"),
+      priorityLineChart = destroyIf(priorityLineChart);
+      priorityLineChart = buildMultiLine(
+        document.getElementById("priorityLineChart").getContext("2d"),
         byPriority.labels,
         byPriority.keys,
         byPriority.seriesMap,
         PRIORITY_COLORS,
-        "Antall"
+        "Priority"
       );
 
-      // 3) Avg cycle time
+      // Tag / fag pie
+      const tagCounts = aggregateDisciplineByTag(topicsToUse);
+      tagDisciplineChart = destroyIf(tagDisciplineChart);
+      tagDisciplineChart = buildPie(
+        document.getElementById("tagDisciplineChart").getContext("2d"),
+        tagCounts
+      );
+
+      // Avg cycle time
       const cycleAgg = aggregateAvgCycleTime(topicsToUse);
       avgCycleTimeChart = destroyIf(avgCycleTimeChart);
       avgCycleTimeChart = buildAvgCycle(
@@ -583,9 +629,9 @@
           return;
         }
 
-        populateWeekSelect(allTopicsWithDates);
+        populateWeekRangeSelectors(allTopicsWithDates);
 
-        // Default: render med alle uker
+        // Default: alle uker
         renderAllCharts(allTopicsWithDates);
 
         setStatus(`Sist oppdatert: ${new Date().toLocaleString()} | Topics: ${allTopicsWithDates.length}`);
@@ -658,15 +704,17 @@
       }
     }
 
-    // Uke-filter knapp
+    // Ukeintervall knapp
     document.getElementById("applyWeekBtn").addEventListener("click", () => {
       if (!allTopicsWithDates.length) return;
-      const filtered = getFilteredTopicsByWeek(allTopicsWithDates);
+      const filtered = filterTopicsByWeekRange(allTopicsWithDates);
       renderAllCharts(filtered);
 
-      const selected = document.getElementById("weekSelect").value;
-      if (selected) setStatus(`Filter: ${selected} | Topics: ${filtered.length}`);
-      else setStatus(`Alle uker | Topics: ${filtered.length}`);
+      const from = document.getElementById("fromWeekSelect").value;
+      const to = document.getElementById("toWeekSelect").value;
+
+      const label = (!from && !to) ? "Alle uker" : `Ukeintervall: ${from || "(start)"} → ${to || "(slutt)"}`;
+      setStatus(`${label} | Topics: ${filtered.length}`);
     });
 
     document.getElementById("refreshBtn").addEventListener("click", refreshData);
