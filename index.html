@@ -14,9 +14,6 @@
   <style>
     :root{
       --primary:#0069d9;
-      --success:#28a745;
-      --danger:#e74c3c;
-      --gray:#6c757d;
       --border:#e5e7eb;
       --card:#ffffff;
       --bg:#f5f5f7;
@@ -115,7 +112,6 @@
     }
     @keyframes spin{ to{ transform:rotate(360deg);} }
 
-    /* ====== MAIN ====== */
     main{
       flex:1;
       display:flex;
@@ -131,13 +127,11 @@
       white-space:pre-wrap;
     }
 
-    /* "Linje mellom grafer": vi gjør grid uten "gap" + border på hvert kort,
-       slik at det oppleves som linjer mellom alle grafer */
+    /* Linje mellom grafer: grid med border rundt + border mellom celler */
     .cards{
       display:grid;
-      grid-template-columns:repeat(auto-fit, minmax(340px, 1fr));
+      grid-template-columns:repeat(auto-fit, minmax(360px, 1fr));
       gap:0;
-      align-items:stretch;
       border:1px solid var(--border);
       border-radius:14px;
       overflow:hidden;
@@ -149,12 +143,10 @@
       padding:12px 12px 14px 12px;
       display:flex;
       flex-direction:column;
-      min-height:240px;
+      min-height:260px;
       border-right:1px solid var(--border);
       border-bottom:1px solid var(--border);
     }
-    /* Fjern dobbeltlinjer på siste kolonne/rad håndteres av overflow+grid */
-    .card:last-child{ border-right:0; }
 
     .card h2{
       margin:0 0 8px 0;
@@ -168,38 +160,15 @@
       margin:8px 0 10px 0;
     }
 
-    .summary-value{
-      font-size:28px;
-      font-weight:900;
-      line-height:1.1;
-      margin:6px 0 6px 0;
-    }
-
     .small-text{
       font-size:12px;
       color:#6b7280;
       margin-top:8px;
     }
 
-    .kpi-grid{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:10px;
-      margin-top:8px;
-    }
-
-    .kpi{
-      border:1px solid #eee;
-      border-radius:12px;
-      padding:10px;
-      background:#fafafa;
-    }
-    .kpi .label{ font-size:12px; color:#6b7280; margin-bottom:2px; }
-    .kpi .value{ font-size:18px; font-weight:900; }
-
     canvas{
       width:100% !important;
-      height:240px !important;
+      height:260px !important;
     }
 
     code{
@@ -213,10 +182,8 @@
 </head>
 
 <body>
-  <!-- ====== HEADER (likt mht overskrift + logo) ====== -->
   <header>
     <div class="logoBox">
-      <!-- Legg logo-filen i samme mappe som HTML, eller bytt src -->
       <img src="norconsult-logo-black.png" alt="Norconsult logo"
            onerror="this.style.display='none'; this.parentElement.textContent='Norconsult'; this.parentElement.style.fontWeight='900';">
     </div>
@@ -229,7 +196,6 @@
 
     <div class="headerRight">
       <div id="status"><span class="loading-spinner"></span>Kobler til Trimble Connect…</div>
-      <button class="secondary" id="clearHistoryBtn" title="Sletter trenddata lagret lokalt i nettleseren">Tøm historikk</button>
       <button id="refreshBtn">Oppdater data</button>
     </div>
   </header>
@@ -238,121 +204,67 @@
     <div id="error"></div>
 
     <div class="cards">
-      <!-- ====== Oversikt ====== -->
       <div class="card">
-        <h2>Oversikt</h2>
-        <div class="small-text" id="projectInfo">–</div>
+        <h2>Opprettede Topics over tid</h2>
         <div class="divider"></div>
-
-        <div class="small-text">Antall BCF Topics i prosjektet:</div>
-        <div id="totalTopics" class="summary-value">–</div>
-
-        <div class="kpi-grid">
-          <div class="kpi">
-            <div class="label">Åpne saker (nå)</div>
-            <div class="value" id="openNow">–</div>
-          </div>
-          <div class="kpi">
-            <div class="label">Lukkede saker (nå)</div>
-            <div class="value" id="closedNow">–</div>
-          </div>
-          <div class="kpi">
-            <div class="label">Median behandlingstid (dager)</div>
-            <div class="value" id="medianCycle">–</div>
-          </div>
-          <div class="kpi">
-            <div class="label">Snitt behandlingstid (dager)</div>
-            <div class="value" id="avgCycle">–</div>
-          </div>
-        </div>
-
+        <canvas id="createdOverTimeChart"></canvas>
         <div class="small-text">
-          Behandlingstid = <code>modified_date - creation_date</code> for topics som tolkes som “lukkede”.
+          Bygger på <code>creation_date</code> for alle BCF Topics.
         </div>
       </div>
 
-      <!-- ====== Tidslinje: alle saker + status + avg cycle time ====== -->
       <div class="card">
-        <h2>Tidslinje (alle topics + status)</h2>
+        <h2>Opprettede Topics over tid – Status</h2>
         <div class="divider"></div>
-        <canvas id="timelineAllChart"></canvas>
+        <canvas id="createdByStatusChart"></canvas>
         <div class="small-text">
-          Viser total (kumulativt) + linjer per status (snapshot-basert) + linje for snitt behandlingstid.
+          Stacked per periode (basert på topics opprettet i perioden, fordelt på dagens status).
         </div>
       </div>
 
-      <!-- ====== Trend pr Status ====== -->
       <div class="card">
-        <h2>Trend: Topics per Status</h2>
+        <h2>Opprettede Topics over tid – Type</h2>
         <div class="divider"></div>
-        <canvas id="statusTrendChart"></canvas>
-        <div class="small-text">Snapshot-basert utvikling over tid (antall per status per oppdatering).</div>
-      </div>
-
-      <!-- ====== Trend pr Type ====== -->
-      <div class="card">
-        <h2>Trend: Topics per Type</h2>
-        <div class="divider"></div>
-        <canvas id="typeTrendChart"></canvas>
-        <div class="small-text">Snapshot-basert utvikling over tid (antall per type per oppdatering).</div>
-      </div>
-
-      <!-- ====== Trend pr Priority ====== -->
-      <div class="card">
-        <h2>Trend: Topics per Priority</h2>
-        <div class="divider"></div>
-        <canvas id="priorityTrendChart"></canvas>
-        <div class="small-text">Snapshot-basert utvikling over tid (antall per priority per oppdatering).</div>
-      </div>
-
-      <!-- ====== Nå-situasjon (bar charts) ====== -->
-      <div class="card">
-        <h2>Nå: Topics per Type</h2>
-        <div class="divider"></div>
-        <canvas id="typeChart"></canvas>
-        <div class="small-text">Basert på <code>topic_type</code> (eller <code>type</code>).</div>
+        <canvas id="createdByTypeChart"></canvas>
+        <div class="small-text">
+          Stacked per periode (basert på <code>topic_type</code>/<code>type</code>).
+        </div>
       </div>
 
       <div class="card">
-        <h2>Nå: Topics per Priority</h2>
+        <h2>Opprettede Topics over tid – Priority</h2>
         <div class="divider"></div>
-        <canvas id="priorityChart"></canvas>
-        <div class="small-text">Basert på <code>priority</code> (hvis brukt i prosjektet).</div>
+        <canvas id="createdByPriorityChart"></canvas>
+        <div class="small-text">
+          Stacked per periode (basert på <code>priority</code>).
+        </div>
       </div>
 
       <div class="card">
-        <h2>Nå: Topics per Status</h2>
+        <h2>Gjennomsnittlig tid fra opprettet → lukket</h2>
         <div class="divider"></div>
-        <canvas id="statusChart"></canvas>
-        <div class="small-text">Basert på <code>topic_status</code> (eller <code>status</code>).</div>
+        <canvas id="avgCycleTimeChart"></canvas>
+        <div class="small-text">
+          Beregnes for topics med status <code>Closed/Done/Resolved/Approved</code> som
+          <code>modified_date - creation_date</code> (dager). Linje viser snitt per periode + globalt snitt.
+        </div>
       </div>
     </div>
   </main>
 
   <script>
-    let API = null;
-    let accessToken = null;
-    let currentProjectId = null;
+    // ====== KONFIG ======
+    // Bytt til "day" hvis du vil ha dag-for-dag. "week" er ofte best.
+    const GROUP_BY = "week"; // "day" | "week" | "month"
 
-    // "Nå"-charts
-    let typeChart = null;
-    let priorityChart = null;
-    let statusChart = null;
-
-    // Trend-charts
-    let timelineAllChart = null;
-    let statusTrendChart = null;
-    let typeTrendChart = null;
-    let priorityTrendChart = null;
-
-    // Host for BCF API (endre hvis miljøet ditt krever annen base)
+    // Host for BCF API (endre hvis din tenant krever annet)
     const TOPICS_API_BASE = "https://open21.connect.trimble.com";
 
-    // Lokal historikk (trend)
-    const HISTORY_KEY_PREFIX = "bcf_topic_stats_history__";
-    const historyKey = (projectId) => HISTORY_KEY_PREFIX + projectId;
+    // Status mapping
+    const CLOSED_STATUSES = new Set(["Closed", "Done", "Resolved", "Approved"]);
+    const UNKNOWN_LABEL = "Ikke satt";
 
-    // Farger (for "nå"-bar charts)
+    // (Valgfritt) Fargekart – hvis ikke finnes, bruker vi auto-farger fra Chart.js.
     const STATUS_COLORS = {
       "New": "#3684D1",
       "Open": "#FCC603",
@@ -360,6 +272,12 @@
       "Waiting": "#29B35B",
       "Done": "#36B7D1",
       "Closed": "#36B7D1"
+    };
+
+    const TYPE_COLORS = {
+      "Issue": "#FF0000",
+      "Clash": "#F908E9",
+      "Request": "#FFFF00"
     };
 
     const PRIORITY_COLORS = {
@@ -370,17 +288,26 @@
       "Critical": "#C81922"
     };
 
-    const TYPE_COLORS = {
-      "Issue": "#FF0000",
-      "Clash": "#F908E9",
-      "Request": "#FFFF00"
-    };
+    // ====== STATE ======
+    let API = null;
+    let accessToken = null;
+    let currentProjectId = null;
 
-    const DEFAULT_BAR_COLOR = "#9CA3AF";
+    let createdOverTimeChart = null;
+    let createdByStatusChart = null;
+    let createdByTypeChart = null;
+    let createdByPriorityChart = null;
+    let avgCycleTimeChart = null;
 
-    // Tilpass disse om prosjektet bruker andre statuser
-    const CLOSED_STATUSES = new Set(["Closed", "Done", "Resolved", "Approved"]);
-    const OPEN_STATUSES = new Set(["New", "Open", "In Progress", "Waiting", "ReOpened", "Reopen"]);
+    // ====== HELPERS ======
+    function escapeHtml(str) {
+      return String(str ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
 
     function setStatus(message, isLoading = false) {
       const el = document.getElementById("status");
@@ -395,16 +322,6 @@
 
     function setBusy(isBusy) {
       document.getElementById("refreshBtn").disabled = isBusy;
-      document.getElementById("clearHistoryBtn").disabled = isBusy;
-    }
-
-    function escapeHtml(str) {
-      return String(str ?? "")
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
     }
 
     function safeStr(v) {
@@ -419,199 +336,84 @@
       return Number.isNaN(d.getTime()) ? null : d;
     }
 
-    function toISODate(d) {
-      const year = d.getFullYear();
-      const m = String(d.getMonth() + 1).padStart(2, "0");
-      const day = String(d.getDate()).padStart(2, "0");
-      return `${year}-${m}-${day}`;
+    function pad2(n){ return String(n).padStart(2,"0"); }
+
+    // ISO week key: YYYY-Www
+    function getISOWeekKey(date) {
+      const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+      const dayNum = d.getUTCDay() || 7;
+      d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+      const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+      const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+      return `${d.getUTCFullYear()}-W${pad2(weekNo)}`;
     }
 
-    function median(values) {
-      if (!values.length) return null;
-      const sorted = [...values].sort((a,b)=>a-b);
-      const mid = Math.floor(sorted.length / 2);
-      return (sorted.length % 2 !== 0) ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
-    }
-
-    function avg(values) {
-      if (!values.length) return null;
-      const sum = values.reduce((a,b)=>a+b, 0);
-      return sum / values.length;
-    }
-
-    function countByKey(items, getter, emptyLabel = "Ikke satt") {
-      const counts = {};
-      for (const it of items) {
-        const raw = getter(it);
-        const key = (raw && String(raw).trim()) || emptyLabel;
-        counts[key] = (counts[key] || 0) + 1;
+    function bucketKey(date) {
+      if (GROUP_BY === "day") {
+        return `${date.getFullYear()}-${pad2(date.getMonth()+1)}-${pad2(date.getDate())}`;
       }
-      return counts;
+      if (GROUP_BY === "month") {
+        return `${date.getFullYear()}-${pad2(date.getMonth()+1)}`;
+      }
+      return getISOWeekKey(date); // week
     }
 
-    // --- Charts ---
-    function buildBarChart(ctx, counts, colorMap) {
-      const labels = Object.keys(counts);
-      const data = labels.map(l => counts[l]);
-      const colors = labels.map(label => (colorMap && colorMap[label]) ? colorMap[label] : DEFAULT_BAR_COLOR);
-
-      return new Chart(ctx, {
-        type: "bar",
-        data: {
-          labels,
-          datasets: [{
-            label: "Antall Topics",
-            data,
-            backgroundColor: colors,
-            borderColor: colors,
-            borderWidth: 1
-          }]
-        },
-        options: {
-          responsive: true,
-          plugins: {
-            legend: { display: false },
-            tooltip: { callbacks: { label: (ctx) => `${ctx.parsed.y} topics` } }
-          },
-          scales: {
-            x: { ticks: { font: { size: 11 }, autoSkip: false, maxRotation: 45, minRotation: 0 } },
-            y: { beginAtZero: true, ticks: { precision: 0 } }
-          }
-        }
-      });
+    function uniqueSorted(arr) {
+      return [...new Set(arr)].sort((a,b) => a.localeCompare(b));
     }
 
-    function buildMultiLineTrendChart(ctx, labels, seriesMap, chartTitle) {
-      // seriesMap: { seriesName: [values...] }
-      const datasets = Object.keys(seriesMap).map(name => ({
-        label: name,
-        data: seriesMap[name],
-        tension: 0.25
-      }));
-
-      return new Chart(ctx, {
-        type: "line",
-        data: { labels, datasets },
-        options: {
-          responsive: true,
-          plugins: {
-            legend: { display: true },
-            title: { display: false, text: chartTitle }
-          },
-          scales: {
-            x: { ticks: { maxRotation: 45, minRotation: 0, autoSkip: true } },
-            y: { beginAtZero: true, ticks: { precision: 0 } }
-          }
-        }
-      });
+    function avg(nums) {
+      const v = nums.filter(n => Number.isFinite(n));
+      if (!v.length) return null;
+      return v.reduce((a,b)=>a+b,0) / v.length;
     }
 
-    function buildTimelineAll(ctx, labels, totalSeries, statusSeriesMap, avgCycleSeries) {
-      const datasets = [];
+    // ====== DATA AGGREGATION (basert på creation_date) ======
+    function aggregateCreatedCounts(topics, getCategory) {
+      // returns: { labels: [bucket...], seriesKeys:[...], seriesMap:{key:[counts...]}, total:[counts...] }
+      const bucketMap = new Map(); // bucket -> {total, byKey:{k:count}}
+      const buckets = [];
 
-      // Total topics (kumulativt)
-      datasets.push({ label: "Total topics", data: totalSeries, tension: 0.25 });
+      for (const t of topics) {
+        const cd = parseDateMaybe(t.creation_date);
+        if (!cd) continue;
+        const b = bucketKey(cd);
+        buckets.push(b);
 
-      // Status-linjer (antall per status ved hvert snapshot)
-      for (const name of Object.keys(statusSeriesMap)) {
-        datasets.push({ label: `Status: ${name}`, data: statusSeriesMap[name], tension: 0.25 });
+        const cat = safeStr(getCategory(t)) || UNKNOWN_LABEL;
+
+        if (!bucketMap.has(b)) bucketMap.set(b, { total: 0, byKey: {} });
+        const obj = bucketMap.get(b);
+
+        obj.total += 1;
+        obj.byKey[cat] = (obj.byKey[cat] || 0) + 1;
       }
 
-      // Avg cycle time (dager)
-      datasets.push({
-        label: "Snitt tid New→Closed (dager)",
-        data: avgCycleSeries,
-        tension: 0.25,
-        yAxisID: "y2"
-      });
+      const labels = uniqueSorted(buckets);
 
-      return new Chart(ctx, {
-        type: "line",
-        data: { labels, datasets },
-        options: {
-          responsive: true,
-          plugins: { legend: { display: true } },
-          scales: {
-            y: { beginAtZero: true, ticks: { precision: 0 }, title: { display: true, text: "Antall" } },
-            y2: {
-              beginAtZero: true,
-              position: "right",
-              grid: { drawOnChartArea: false },
-              ticks: { precision: 0 },
-              title: { display: true, text: "Dager" }
-            },
-            x: { ticks: { maxRotation: 45, minRotation: 0, autoSkip: true } }
-          }
-        }
-      });
-    }
+      // union keys
+      const keySet = new Set();
+      for (const b of labels) {
+        const o = bucketMap.get(b);
+        if (!o) continue;
+        Object.keys(o.byKey).forEach(k => keySet.add(k));
+      }
+      const seriesKeys = [...keySet].sort((a,b) => a.localeCompare(b));
 
-    // --- API ---
-    async function fetchTopics(projectId) {
-      if (!accessToken) throw new Error("Mangler accessToken – kunne ikke hente Topics.");
-
-      const url = `${TOPICS_API_BASE}/bcf/3.0/projects/${encodeURIComponent(projectId)}/topics`;
-
-      const resp = await fetch(url, {
-        method: "GET",
-        headers: {
-          "Authorization": `Bearer ${accessToken}`,
-          "Accept": "application/json"
-        }
-      });
-
-      if (!resp.ok) {
-        const text = await resp.text().catch(() => "");
-        throw new Error(`Topics API-feil (${resp.status}): ${text || resp.statusText}`);
+      const total = labels.map(b => bucketMap.get(b)?.total || 0);
+      const seriesMap = {};
+      for (const k of seriesKeys) {
+        seriesMap[k] = labels.map(b => (bucketMap.get(b)?.byKey?.[k] || 0));
       }
 
-      const json = await resp.json();
-      return Array.isArray(json) ? json : [];
+      return { labels, seriesKeys, seriesMap, total };
     }
 
-    // ===== Trend / snapshot (lokalt) =====
-    function loadHistory(projectId) {
-      try {
-        const raw = localStorage.getItem(historyKey(projectId));
-        if (!raw) return [];
-        const arr = JSON.parse(raw);
-        return Array.isArray(arr) ? arr : [];
-      } catch { return []; }
-    }
+    function aggregateAvgCycleTime(topics) {
+      // per created-bucket: avg days (for topics that are now closed)
+      const bucketMap = new Map(); // bucket -> [days...]
+      const allDays = [];
 
-    function saveHistory(projectId, historyArr) {
-      localStorage.setItem(historyKey(projectId), JSON.stringify(historyArr));
-    }
-
-    function upsertSnapshot(projectId, snapshot) {
-      const history = loadHistory(projectId);
-      const idx = history.findIndex(x => x.date === snapshot.date);
-      if (idx >= 0) history[idx] = snapshot;
-      else history.push(snapshot);
-
-      history.sort((a,b) => a.date.localeCompare(b.date));
-      saveHistory(projectId, history);
-      return history;
-    }
-
-    function clearHistory(projectId) {
-      localStorage.removeItem(historyKey(projectId));
-    }
-
-    // --- KPI/counters ---
-    function computeOpenClosedFromStatusCounts(statusCounts) {
-      let open = 0, closed = 0;
-      for (const [st, n] of Object.entries(statusCounts)) {
-        if (CLOSED_STATUSES.has(st)) closed += n;
-        else if (OPEN_STATUSES.has(st)) open += n;
-        else open += n;
-      }
-      return { open, closed };
-    }
-
-    function computeCycleTimesDays(topics) {
-      // "Snitt tid fra opprettet til lukket" (bruker modified_date som proxy for lukket-tidspunkt)
-      const days = [];
       for (const t of topics) {
         const st = safeStr(t.topic_status || t.status);
         if (!CLOSED_STATUSES.has(st)) continue;
@@ -623,160 +425,184 @@
         const diffMs = md.getTime() - cd.getTime();
         if (diffMs < 0) continue;
 
-        days.push(diffMs / (1000 * 60 * 60 * 24));
+        const days = diffMs / (1000*60*60*24);
+        allDays.push(days);
+
+        const b = bucketKey(cd);
+        if (!bucketMap.has(b)) bucketMap.set(b, []);
+        bucketMap.get(b).push(days);
       }
-      return days;
-    }
 
-    function normalizeCountsObject(obj) {
-      // sørg for rene tall
-      const out = {};
-      for (const [k,v] of Object.entries(obj || {})) out[k] = Number(v) || 0;
-      return out;
-    }
-
-    function unionKeysAcrossHistory(history, keyName) {
-      // keyName: 'statusCounts' | 'typeCounts' | 'priorityCounts'
-      const keys = new Set();
-      for (const h of history) {
-        const m = h[keyName] || {};
-        Object.keys(m).forEach(k => keys.add(k));
-      }
-      return [...keys].sort((a,b) => a.localeCompare(b));
-    }
-
-    function buildSeriesMap(history, keyName, seriesKeys) {
-      // returns { key: [values per history index] }
-      const map = {};
-      for (const k of seriesKeys) map[k] = [];
-      for (const h of history) {
-        const m = normalizeCountsObject(h[keyName] || {});
-        for (const k of seriesKeys) map[k].push(m[k] || 0);
-      }
-      return map;
-    }
-
-    function updateNowCharts(typeCounts, priorityCounts, statusCounts) {
-      if (typeChart) typeChart.destroy();
-      if (priorityChart) priorityChart.destroy();
-      if (statusChart) statusChart.destroy();
-
-      typeChart = buildBarChart(document.getElementById("typeChart").getContext("2d"), typeCounts, TYPE_COLORS);
-      priorityChart = buildBarChart(document.getElementById("priorityChart").getContext("2d"), priorityCounts, PRIORITY_COLORS);
-      statusChart = buildBarChart(document.getElementById("statusChart").getContext("2d"), statusCounts, STATUS_COLORS);
-    }
-
-    function updateTrendCharts(history) {
-      const labels = history.map(h => h.date);
-
-      // Trend: per status/type/priority
-      const statusKeys = unionKeysAcrossHistory(history, "statusCounts");
-      const typeKeys = unionKeysAcrossHistory(history, "typeCounts");
-      const priorityKeys = unionKeysAcrossHistory(history, "priorityCounts");
-
-      const statusSeries = buildSeriesMap(history, "statusCounts", statusKeys);
-      const typeSeries = buildSeriesMap(history, "typeCounts", typeKeys);
-      const prioritySeries = buildSeriesMap(history, "priorityCounts", priorityKeys);
-
-      // Timeline "alt": total + status-linjer + avg cycle time
-      const totalSeries = history.map(h => Number(h.totalCount) || 0);
-      const avgCycleSeries = history.map(h => {
-        const v = Number(h.avgCycleDays);
-        return Number.isFinite(v) ? Math.round(v) : null;
+      const labels = uniqueSorted([...bucketMap.keys()]);
+      const series = labels.map(b => {
+        const a = avg(bucketMap.get(b) || []);
+        return a === null ? null : Math.round(a);
       });
 
-      if (timelineAllChart) timelineAllChart.destroy();
-      timelineAllChart = buildTimelineAll(
-        document.getElementById("timelineAllChart").getContext("2d"),
-        labels,
-        totalSeries,
-        statusSeries,
-        avgCycleSeries
-      );
+      const globalAvg = avg(allDays);
+      const globalLine = labels.map(_ => globalAvg === null ? null : Math.round(globalAvg));
 
-      if (statusTrendChart) statusTrendChart.destroy();
-      statusTrendChart = buildMultiLineTrendChart(
-        document.getElementById("statusTrendChart").getContext("2d"),
-        labels,
-        statusSeries,
-        "Trend per Status"
-      );
-
-      if (typeTrendChart) typeTrendChart.destroy();
-      typeTrendChart = buildMultiLineTrendChart(
-        document.getElementById("typeTrendChart").getContext("2d"),
-        labels,
-        typeSeries,
-        "Trend per Type"
-      );
-
-      if (priorityTrendChart) priorityTrendChart.destroy();
-      priorityTrendChart = buildMultiLineTrendChart(
-        document.getElementById("priorityTrendChart").getContext("2d"),
-        labels,
-        prioritySeries,
-        "Trend per Priority"
-      );
+      return { labels, series, globalLine, globalAvg };
     }
 
-    function updateUIAndAllCharts(topics) {
-      // Counts (nå)
-      const typeCounts = countByKey(topics, t => t.topic_type || t.type, "Ikke satt");
-      const priorityCounts = countByKey(topics, t => t.priority, "Ikke satt");
-      const statusCounts = countByKey(topics, t => t.topic_status || t.status, "Ikke satt");
+    // ====== CHART BUILDERS ======
+    function destroyIf(c){ if (c) c.destroy(); return null; }
 
-      document.getElementById("totalTopics").textContent = String(topics.length);
+    function buildCreatedOverTime(ctx, labels, totals) {
+      return new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels,
+          datasets: [{ label: "Opprettede topics", data: totals }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: true } },
+          scales: {
+            x: { ticks: { maxRotation: 45, minRotation: 0, autoSkip: true } },
+            y: { beginAtZero: true, ticks: { precision: 0 } }
+          }
+        }
+      });
+    }
 
-      const oc = computeOpenClosedFromStatusCounts(statusCounts);
-      document.getElementById("openNow").textContent = String(oc.open);
-      document.getElementById("closedNow").textContent = String(oc.closed);
+    function buildStacked(ctx, labels, seriesKeys, seriesMap, colorMap) {
+      const datasets = seriesKeys.map(k => {
+        const color = (colorMap && colorMap[k]) ? colorMap[k] : undefined;
+        return {
+          label: k,
+          data: seriesMap[k],
+          backgroundColor: color
+        };
+      });
 
-      const cycleDays = computeCycleTimesDays(topics);
-      const med = median(cycleDays);
-      const av = avg(cycleDays);
+      return new Chart(ctx, {
+        type: "bar",
+        data: { labels, datasets },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: true } },
+          scales: {
+            x: { stacked: true, ticks: { maxRotation: 45, minRotation: 0, autoSkip: true } },
+            y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } }
+          }
+        }
+      });
+    }
 
-      document.getElementById("medianCycle").textContent = (med === null) ? "–" : String(Math.round(med));
-      document.getElementById("avgCycle").textContent = (av === null) ? "–" : String(Math.round(av));
+    function buildAvgCycle(ctx, labels, series, globalLine) {
+      return new Chart(ctx, {
+        type: "line",
+        data: {
+          labels,
+          datasets: [
+            { label: "Snitt per periode (dager)", data: series, tension: 0.25 },
+            { label: "Globalt snitt (dager)", data: globalLine, tension: 0, borderDash: [6,4] }
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: true } },
+          scales: {
+            x: { ticks: { maxRotation: 45, minRotation: 0, autoSkip: true } },
+            y: { beginAtZero: true, ticks: { precision: 0 } }
+          }
+        }
+      });
+    }
 
-      // Oppdater "nå"-charts
-      updateNowCharts(typeCounts, priorityCounts, statusCounts);
+    // ====== API ======
+    async function fetchTopics(projectId) {
+      if (!accessToken) throw new Error("Mangler accessToken – kunne ikke hente Topics.");
+      const url = `${TOPICS_API_BASE}/bcf/3.0/projects/${encodeURIComponent(projectId)}/topics`;
 
-      // Snapshot for trend
-      const today = new Date();
-      const todayKey = toISODate(today);
+      const resp = await fetch(url, {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${accessToken}`, "Accept": "application/json" }
+      });
 
-      const snapshot = {
-        date: todayKey,
-        totalCount: topics.length,
-        openCount: oc.open,
-        closedCount: oc.closed,
-        statusCounts,
-        typeCounts,
-        priorityCounts,
-        avgCycleDays: (av === null) ? null : av,
-        medianCycleDays: (med === null) ? null : med
-      };
+      if (!resp.ok) {
+        const text = await resp.text().catch(() => "");
+        throw new Error(`Topics API-feil (${resp.status}): ${text || resp.statusText}`);
+      }
 
-      const history = upsertSnapshot(currentProjectId, snapshot);
+      const json = await resp.json();
+      return Array.isArray(json) ? json : [];
+    }
 
-      // Oppdater trend-charts
-      updateTrendCharts(history);
+    // ====== MAIN UPDATE ======
+    function updateAllCharts(topics) {
+      // 1) Created over time (total)
+      const createdAgg = aggregateCreatedCounts(topics, _ => "TOTAL");
+      // createdAgg.total gives total per bucket; labels in createdAgg.labels
+      createdOverTimeChart = destroyIf(createdOverTimeChart);
+      createdOverTimeChart = buildCreatedOverTime(
+        document.getElementById("createdOverTimeChart").getContext("2d"),
+        createdAgg.labels,
+        createdAgg.total
+      );
+
+      // 2) Stacked: Status / Type / Priority (based on creation_date)
+      const byStatus = aggregateCreatedCounts(topics, t => (t.topic_status || t.status));
+      createdByStatusChart = destroyIf(createdByStatusChart);
+      createdByStatusChart = buildStacked(
+        document.getElementById("createdByStatusChart").getContext("2d"),
+        byStatus.labels,
+        byStatus.seriesKeys,
+        byStatus.seriesMap,
+        STATUS_COLORS
+      );
+
+      const byType = aggregateCreatedCounts(topics, t => (t.topic_type || t.type));
+      createdByTypeChart = destroyIf(createdByTypeChart);
+      createdByTypeChart = buildStacked(
+        document.getElementById("createdByTypeChart").getContext("2d"),
+        byType.labels,
+        byType.seriesKeys,
+        byType.seriesMap,
+        TYPE_COLORS
+      );
+
+      const byPriority = aggregateCreatedCounts(topics, t => (t.priority));
+      createdByPriorityChart = destroyIf(createdByPriorityChart);
+      createdByPriorityChart = buildStacked(
+        document.getElementById("createdByPriorityChart").getContext("2d"),
+        byPriority.labels,
+        byPriority.seriesKeys,
+        byPriority.seriesMap,
+        PRIORITY_COLORS
+      );
+
+      // 3) Avg cycle time (created-bucket)
+      const cycle = aggregateAvgCycleTime(topics);
+      avgCycleTimeChart = destroyIf(avgCycleTimeChart);
+      avgCycleTimeChart = buildAvgCycle(
+        document.getElementById("avgCycleTimeChart").getContext("2d"),
+        cycle.labels,
+        cycle.series,
+        cycle.globalLine
+      );
     }
 
     async function refreshData() {
-      if (!currentProjectId) {
-        setError("Mangler projectId – er extensionen lastet i et Trimble Connect-prosjekt?");
-        return;
-      }
-
       setBusy(true);
       setError("");
       setStatus("Henter BCF Topics …", true);
 
       try {
         const topics = await fetchTopics(currentProjectId);
-        updateUIAndAllCharts(topics);
-        setStatus(`Sist oppdatert: ${new Date().toLocaleString()}`);
+
+        // Filter bort topics uten creation_date (hvis noen mangler)
+        const topicsWithDates = topics.filter(t => !!parseDateMaybe(t.creation_date));
+
+        if (!topicsWithDates.length) {
+          setError("Fant ingen topics med creation_date. Sjekk at BCF API returnerer creation_date i ditt miljø.");
+          setStatus("Ingen data.");
+          return;
+        }
+
+        updateAllCharts(topicsWithDates);
+        setStatus(`Sist oppdatert: ${new Date().toLocaleString()} | Topics: ${topicsWithDates.length} | GroupBy: ${GROUP_BY}`);
       } catch (err) {
         console.error(err);
         setError("Feil ved henting av Topics: " + (err.message || err));
@@ -821,13 +647,6 @@
         const projectInfo = await API.project.getCurrentProject();
         currentProjectId = projectInfo.id;
 
-        document.getElementById("projectInfo").textContent =
-          `Prosjekt: ${projectInfo.name} (ID: ${projectInfo.id})`;
-
-        // last inn historikk og tegn trend-charts selv før første fetch
-        const history = loadHistory(currentProjectId);
-        if (history.length) updateTrendCharts(history);
-
         setStatus("Ber om tilgang til accessToken …", true);
         const permissionResult = await API.extension.requestPermission("accesstoken");
         handleAccessTokenPayload(permissionResult);
@@ -854,22 +673,6 @@
     }
 
     document.getElementById("refreshBtn").addEventListener("click", refreshData);
-
-    document.getElementById("clearHistoryBtn").addEventListener("click", () => {
-      if (!currentProjectId) return;
-      clearHistory(currentProjectId);
-
-      // destroy trend charts
-      if (timelineAllChart) timelineAllChart.destroy();
-      if (statusTrendChart) statusTrendChart.destroy();
-      if (typeTrendChart) typeTrendChart.destroy();
-      if (priorityTrendChart) priorityTrendChart.destroy();
-
-      timelineAllChart = statusTrendChart = typeTrendChart = priorityTrendChart = null;
-
-      setStatus("Historikk tømt (lokalt). Oppdater data for å bygge trend på nytt.");
-    });
-
     window.addEventListener("DOMContentLoaded", init);
   </script>
 </body>
