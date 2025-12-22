@@ -2,7 +2,7 @@
 <html lang="nb">
 <head>
   <meta charset="UTF-8" />
-  <title>BCF Topic Stats</title>
+  <title>NorTopicStats</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <!-- Trimble Connect Workspace API -->
@@ -18,6 +18,7 @@
       --card:#ffffff;
       --bg:#f5f5f7;
       --text:#111827;
+      --muted:#6b7280;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
 
@@ -66,6 +67,29 @@
     }
     #error{ font-size:13px; color:#b00020; white-space:pre-wrap; }
 
+    /* Filter */
+    .filterRow{
+      display:flex;
+      gap:10px;
+      align-items:flex-end;
+      flex-wrap:wrap;
+      padding:10px 12px;
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:14px;
+    }
+    .field{ display:flex; flex-direction:column; gap:4px; }
+    .field label{ font-size:12px; color:var(--muted); font-weight:700; }
+    select{
+      padding:8px 10px;
+      border-radius:10px;
+      border:1px solid var(--border);
+      background:#fff;
+      font-size:13px;
+      min-width:220px;
+    }
+    .hint{ font-size:12px; color:var(--muted); margin-left:auto; }
+
     /* Linje mellom grafer */
     .cards{
       display:grid;
@@ -87,31 +111,46 @@
     }
     .card h2{ margin:0 0 8px 0; font-size:14px; font-weight:800; }
     .divider{ height:1px; background:var(--border); margin:8px 0 10px 0; }
-    .small-text{ font-size:12px; color:#6b7280; margin-top:8px; }
+    .small-text{ font-size:12px; color:var(--muted); margin-top:8px; }
     canvas{ width:100% !important; height:280px !important; }
 
-    /* Filter */
-    .filterRow{
-      display:flex;
-      gap:10px;
-      align-items:flex-end;
-      flex-wrap:wrap;
-      padding:10px 12px;
-      background:var(--card);
+    /* Table */
+    .tableWrap{
+      margin-top:10px;
       border:1px solid var(--border);
-      border-radius:14px;
-    }
-    .field{ display:flex; flex-direction:column; gap:4px; }
-    .field label{ font-size:12px; color:#6b7280; font-weight:700; }
-    select{
-      padding:8px 10px;
-      border-radius:10px;
-      border:1px solid var(--border);
+      border-radius:12px;
+      overflow:auto;
       background:#fff;
-      font-size:13px;
-      min-width:220px;
     }
-    .hint{ font-size:12px; color:#6b7280; margin-left:auto; }
+    table{
+      width:100%;
+      border-collapse:collapse;
+      min-width:560px;
+    }
+    th, td{
+      padding:8px 10px;
+      border-bottom:1px solid var(--border);
+      font-size:12px;
+      text-align:left;
+      white-space:nowrap;
+    }
+    th{
+      position:sticky;
+      top:0;
+      background:#fafafa;
+      z-index:1;
+      font-weight:900;
+    }
+    tr:last-child td{ border-bottom:0; }
+    .right{ text-align:right; }
+    .pill{
+      display:inline-block;
+      padding:2px 8px;
+      border-radius:999px;
+      border:1px solid var(--border);
+      background:#f8fafc;
+      font-weight:700;
+    }
   </style>
 </head>
 
@@ -123,7 +162,7 @@
     </div>
 
     <div class="titleBlock">
-      <div class="title">BCF Topic Stats</div>
+      <div class="title">NorTopicStats</div>
       <div class="org">Norconsult Norge</div>
       <div class="dev">Developed by Edin Dzakmic, Norconsult, (AI-assisted development)</div>
     </div>
@@ -189,12 +228,18 @@
         <div class="small-text">Linjer per priority (antall opprettet per uke).</div>
       </div>
 
+      <!-- Tag pie + table -->
       <div class="card">
-        <h2>Fordeling per fag (Tag)</h2>
+        <h2>Fag (Tag): antall saker + statusoversikt</h2>
         <div class="divider"></div>
         <canvas id="tagDisciplineChart"></canvas>
+
+        <div class="tableWrap" id="tagStatusTableWrap" aria-label="Statusoversikt per fag">
+          <!-- tabell injiseres her -->
+        </div>
+
         <div class="small-text">
-          Basert på tag (f.eks. “Veg”, “VAO”, osv.). Hvis flere tags finnes på samme topic kan den telle flere ganger.
+          Basert på tag/labels på topic (f.eks. “Veg”, “VAO”). Hvis et topic har flere tags kan det telle flere ganger.
         </div>
       </div>
 
@@ -292,11 +337,7 @@
       return v.reduce((a,b)=>a+b,0) / v.length;
     }
 
-    function compareWeekKeys(a, b) {
-      // a/b: "YYYY-Www"
-      // Lexicographic works because fixed format, but we ensure:
-      return a.localeCompare(b);
-    }
+    function compareWeekKeys(a, b) { return a.localeCompare(b); }
 
     // ====== FILTER: fra/til uke ======
     function populateWeekRangeSelectors(topics) {
@@ -321,8 +362,8 @@
     }
 
     function filterTopicsByWeekRange(topics) {
-      const from = document.getElementById("fromWeekSelect").value; // may be ""
-      const to = document.getElementById("toWeekSelect").value;     // may be ""
+      const from = document.getElementById("fromWeekSelect").value;
+      const to = document.getElementById("toWeekSelect").value;
       if (!from && !to) return topics;
 
       return topics.filter(t => {
@@ -339,7 +380,7 @@
     // ====== DATA AGGREGATION (basert på creation_date) ======
     function aggregateCreatedTotal(topics) {
       const buckets = [];
-      const bucketMap = new Map(); // b -> count
+      const bucketMap = new Map();
 
       for (const t of topics) {
         const cd = parseDateMaybe(t.creation_date);
@@ -356,7 +397,7 @@
 
     function aggregateCreatedByCategory(topics, getCategory) {
       const buckets = [];
-      const bucketMap = new Map(); // b -> {cat:count}
+      const bucketMap = new Map();
 
       for (const t of topics) {
         const cd = parseDateMaybe(t.creation_date);
@@ -386,7 +427,7 @@
     }
 
     function aggregateAvgCycleTime(topics) {
-      const bucketMap = new Map(); // bucket -> [days...]
+      const bucketMap = new Map();
       const allDays = [];
 
       for (const t of topics) {
@@ -421,22 +462,19 @@
 
     // ====== TAG / FAG ======
     function extractTags(topic) {
-      // BCF 3.0 kan ha "labels" (array). Noen APIer bruker "tags" eller "label".
-      // Vi sjekker flere muligheter robust:
       const candidates = [];
-
       if (Array.isArray(topic.labels)) candidates.push(...topic.labels);
       if (Array.isArray(topic.tags)) candidates.push(...topic.tags);
-
       const single = safeStr(topic.label || topic.tag || topic.discipline);
       if (single) candidates.push(single);
-
-      // normaliser, fjern tomme, unike
       return [...new Set(candidates.map(safeStr).filter(Boolean))];
     }
 
-    function aggregateDisciplineByTag(topics) {
-      // teller topics per tag (innenfor filtrert periode)
+    function getTopicStatus(topic) {
+      return safeStr(topic.topic_status || topic.status) || UNKNOWN_LABEL;
+    }
+
+    function aggregateTagCounts(topics) {
       const counts = {};
       for (const t of topics) {
         const tags = extractTags(t);
@@ -444,15 +482,61 @@
           counts[UNKNOWN_LABEL] = (counts[UNKNOWN_LABEL] || 0) + 1;
           continue;
         }
-
-        // Du kan velge "tell kun første tag" hvis du vil:
-        // const first = tags[0]; counts[first] = (counts[first]||0)+1;
-        // Her teller vi alle tags på topic:
-        for (const tag of tags) {
-          counts[tag] = (counts[tag] || 0) + 1;
-        }
+        // teller alle tags (samme som tidligere)
+        for (const tag of tags) counts[tag] = (counts[tag] || 0) + 1;
       }
       return counts;
+    }
+
+    function aggregateTagStatusMatrix(topics) {
+      // return { tags:[...], statuses:[...], matrix: {tag:{status:count}}, totals:{tag:sum} }
+      const matrix = {};
+      const totals = {};
+      const statusSet = new Set();
+
+      for (const t of topics) {
+        const status = getTopicStatus(t);
+        statusSet.add(status);
+
+        const tags = extractTags(t);
+        const used = tags.length ? tags : [UNKNOWN_LABEL];
+
+        for (const tag of used) {
+          if (!matrix[tag]) matrix[tag] = {};
+          matrix[tag][status] = (matrix[tag][status] || 0) + 1;
+          totals[tag] = (totals[tag] || 0) + 1;
+        }
+      }
+
+      const tags = Object.keys(matrix).sort((a,b) => a.localeCompare(b));
+      const statuses = [...statusSet].sort((a,b) => a.localeCompare(b));
+
+      return { tags, statuses, matrix, totals };
+    }
+
+    function renderTagStatusTable(targetEl, tagMatrix) {
+      const { tags, statuses, matrix, totals } = tagMatrix;
+
+      const headerCells =
+        `<th>Fag (Tag)</th>` +
+        `<th class="right">Totalt</th>` +
+        statuses.map(s => `<th class="right">${escapeHtml(s)}</th>`).join("");
+
+      const rows = tags.map(tag => {
+        const total = totals[tag] || 0;
+        const cells =
+          `<td><span class="pill">${escapeHtml(tag)}</span></td>` +
+          `<td class="right"><b>${total}</b></td>` +
+          statuses.map(s => `<td class="right">${(matrix[tag]?.[s] || 0)}</td>`).join("");
+        return `<tr>${cells}</tr>`;
+      }).join("");
+
+      targetEl.innerHTML = `
+        <table>
+          <thead><tr>${headerCells}</tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
     }
 
     // ====== CHART HELPERS ======
@@ -496,16 +580,29 @@
       });
     }
 
-    function buildPie(ctx, counts) {
+    function buildPieWithCounts(ctx, counts) {
       const labels = Object.keys(counts);
       const data = labels.map(l => counts[l]);
 
+      // Vis "antall saker pr fag" i tooltip + i legend via label (Chart.js legend viser label bare)
+      // Tooltip viser label + antall
       return new Chart(ctx, {
         type: "pie",
         data: { labels, datasets: [{ data }] },
         options: {
           responsive: true,
-          plugins: { legend: { display: true } }
+          plugins: {
+            legend: { display: true },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => {
+                  const label = ctx.label || "";
+                  const value = ctx.parsed ?? 0;
+                  return `${label}: ${value}`;
+                }
+              }
+            }
+          }
         }
       });
     }
@@ -561,7 +658,7 @@
         totalAgg.totals
       );
 
-      // Multi-line: status / type / priority (kun linjer, ingen stolper)
+      // Multi-line: status / type / priority
       const byStatus = aggregateCreatedByCategory(topicsToUse, t => (t.topic_status || t.status));
       statusLineChart = destroyIf(statusLineChart);
       statusLineChart = buildMultiLine(
@@ -595,13 +692,17 @@
         "Priority"
       );
 
-      // Tag / fag pie
-      const tagCounts = aggregateDisciplineByTag(topicsToUse);
+      // Tag / fag pie + table
+      const tagCounts = aggregateTagCounts(topicsToUse);
       tagDisciplineChart = destroyIf(tagDisciplineChart);
-      tagDisciplineChart = buildPie(
+      tagDisciplineChart = buildPieWithCounts(
         document.getElementById("tagDisciplineChart").getContext("2d"),
         tagCounts
       );
+
+      const tableWrap = document.getElementById("tagStatusTableWrap");
+      const tagMatrix = aggregateTagStatusMatrix(topicsToUse);
+      renderTagStatusTable(tableWrap, tagMatrix);
 
       // Avg cycle time
       const cycleAgg = aggregateAvgCycleTime(topicsToUse);
