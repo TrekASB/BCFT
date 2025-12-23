@@ -1,7 +1,8 @@
 {
-  "title": "BCF Topic Stats",
+  "title": "BCFTopicPulse",
   "icon": "https://trekasb.github.io/BCFT/icon.png",
   "url": "https://trekasb.github.io/BCFT/index.html",
   "description": "Viser statistikk over BCF Topics (type, prioritet og status) for valgt prosjekt.",
   "enabled": true
 }
+
