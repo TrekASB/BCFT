@@ -197,7 +197,7 @@
     .modalMeta{ font-size:12px; color:var(--muted); margin-top:2px; }
     .modalActions{ display:flex; gap:10px; align-items:center; }
     #topicsModalSearch{
-      width:min(420px, 52vw);
+      width:min(420px, 40vw);
       padding:8px 10px;
       border-radius:10px;
       border:1px solid var(--border);
@@ -210,6 +210,9 @@
     }
     th.sortable{ cursor:pointer; user-select:none; }
     th.sortable:hover{ background:#f1f5f9; }
+
+    /* Modal buttons layout */
+    .modalBtns{ display:flex; gap:10px; align-items:center; }
   </style>
 </head>
 
@@ -380,7 +383,10 @@
 
         <div class="modalActions">
           <input id="topicsModalSearch" type="search" placeholder="Søk i tittel / status / type / priority / id…" />
-          <button class="secondary" id="topicsModalCloseBtn">Lukk</button>
+          <div class="modalBtns">
+            <button class="secondary" id="topicsModalCsvBtn">CSV eksport</button>
+            <button class="secondary" id="topicsModalCloseBtn">Lukk</button>
+          </div>
         </div>
       </div>
 
@@ -394,10 +400,8 @@
   </div>
 
   <script>
-    // ====== Registrer DataLabels-plugin for % på kakediagram ======
     if (window.ChartDataLabels) Chart.register(ChartDataLabels);
 
-    // ====== KONFIG ======
     const TOPICS_API_BASE = "https://open21.connect.trimble.com";
     const CLOSED_STATUSES = new Set(["Closed", "Done", "Resolved", "Approved"]);
     const UNKNOWN_LABEL = "Ikke satt";
@@ -410,19 +414,15 @@
       { key: "60+",  min: 61, max: Infinity }
     ];
 
-    // STATE
     let API=null, accessToken=null, currentProjectId=null;
     let allTopics=[], allTopicsWithDates=[];
     let currentFilteredTopics=[];
 
-    // VDC charts
     let createdClosedChart=null, backlogChart=null, wipChart=null, agingChart=null, cycleTimeChart=null, dueDateChart=null;
     let cfdChart=null, agingByTagChart=null;
 
-    // Topic charts
     let createdOverTimeChart=null, statusLineChart=null, typeLineChart=null, priorityLineChart=null, tagDisciplineChart=null, avgCycleTimeChart=null;
 
-    // ====== MODAL STATE ======
     let modalState = {
       tag: null,
       topics: [],
@@ -431,7 +431,6 @@
       search: ""
     };
 
-    // ====== HELPERS ======
     function escapeHtml(str){return String(str??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");}
     function setStatus(message,isLoading=false){
       const el=document.getElementById("status");
@@ -451,7 +450,6 @@
     }
     function pad2(n){return String(n).padStart(2,"0");}
 
-    // ISO week key: YYYY-Www
     function getISOWeekKey(date){
       const d=new Date(Date.UTC(date.getFullYear(),date.getMonth(),date.getDate()));
       const dayNum=d.getUTCDay()||7;
@@ -464,7 +462,6 @@
     function compareWeekKeys(a,b){return a.localeCompare(b);}
     function uniqueSorted(arr){return [...new Set(arr)].sort((a,b)=>a.localeCompare(b));}
 
-    // week range: start/end (UTC)
     function isoWeekToDateRange(weekKey){
       const [yPart,wPart]=weekKey.split("-W");
       const year=Number(yPart), week=Number(wPart);
@@ -503,7 +500,6 @@
       return parseDateMaybe(topic.modified_date);
     }
 
-    // ====== FILTER UI ======
     function populateWeekRangeSelectors(topics){
       const weeks=[];
       for(const t of topics){
@@ -545,7 +541,6 @@
       return last?isoWeekToDateRange(last).end:new Date();
     }
 
-    // ====== TAGS ======
     function extractTags(topic){
       const candidates=[];
       if(Array.isArray(topic.labels)) candidates.push(...topic.labels);
@@ -556,7 +551,7 @@
     }
     function getTopicStatus(topic){return safeStr(topic.topic_status||topic.status)||UNKNOWN_LABEL;}
 
-    // ====== MODAL: open list for tag (NO POPUPS) ======
+    // ===== Modal helpers =====
     function openTopicsModalForTag(tag){
       modalState.tag = tag;
 
@@ -722,7 +717,68 @@
       metaEl.textContent = `Periode: ${periodLabel} • Antall topics: ${topics.length}/${modalState.topics.length}`;
     }
 
-    // ====== AGG: TOPIC DASHBOARD ======
+    // ===== CSV EXPORT (from current modal view) =====
+    function csvEscape(value){
+      const s = safeStr(value);
+      if (s.includes('"') || s.includes(",") || s.includes("\n") || s.includes("\r")) {
+        return `"${s.replaceAll('"','""')}"`;
+      }
+      return s;
+    }
+
+    function buildModalCsvRows(){
+      // Export exactly what user sees now (search + sort applied)
+      const list = applyModalFilterAndSort();
+      const rows = [];
+
+      rows.push(["Tag", "Opprettet", "Status", "Type", "Priority", "Tittel", "GUID/ID"].map(csvEscape).join(","));
+
+      for(const t of list){
+        const created = fmtDate(parseDateMaybe(t.creation_date));
+        const status = safeStr(t.topic_status||t.status) || UNKNOWN_LABEL;
+        const type = safeStr(t.topic_type||t.type) || UNKNOWN_LABEL;
+        const priority = safeStr(t.priority) || UNKNOWN_LABEL;
+        const title = getTopicTitle(t);
+        const id = getTopicId(t);
+
+        rows.push([
+          modalState.tag || "",
+          created,
+          status,
+          type,
+          priority,
+          title,
+          id
+        ].map(csvEscape).join(","));
+      }
+      return rows.join("\r\n");
+    }
+
+    function downloadCsv(filename, csvText){
+      const blob = new Blob([csvText], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function exportModalToCsv(){
+      const csv = buildModalCsvRows();
+
+      const from=document.getElementById("fromWeekSelect").value;
+      const to=document.getElementById("toWeekSelect").value;
+      const range = (!from && !to) ? "alle-uker" : `${from||"start"}_to_${to||"slutt"}`;
+      const tag = (modalState.tag || "tag").replaceAll(/[^a-zA-Z0-9_-]/g, "_");
+
+      const fileName = `BCF_Topics_${tag}_${range}.csv`;
+      downloadCsv(fileName, csv);
+    }
+
+    // ====== AGG / CHARTS ======
     function aggregateCreatedTotal(topics){
       const buckets=[]; const bucketMap=new Map();
       for(const t of topics){
@@ -816,7 +872,6 @@
       return {labels,series,globalLine};
     }
 
-    // ====== AGG: VDC DASHBOARD ======
     function buildUnifiedWeekLabels(topics){
       const weeks=[];
       for(const t of topics){
@@ -1033,7 +1088,6 @@
       return { tags, buckets, seriesMap };
     }
 
-    // ====== CHART BUILDERS ======
     function destroyIf(c){ if(c) c.destroy(); return null; }
 
     function buildBar(ctx, labels, datasets, stacked=false){
@@ -1076,7 +1130,6 @@
       return buildLine(ctx, labels, datasets);
     }
 
-    // PIE: % labels on slices + click opens modal (no popup)
     function buildPieWithCounts(ctx, counts){
       const labels=Object.keys(counts);
       const data=labels.map(l=>counts[l]);
@@ -1147,7 +1200,6 @@
       });
     }
 
-    // ====== API ======
     async function fetchTopics(projectId){
       if(!accessToken) throw new Error("Mangler accessToken – kunne ikke hente Topics.");
       const url=`${TOPICS_API_BASE}/bcf/3.0/projects/${encodeURIComponent(projectId)}/topics`;
@@ -1166,7 +1218,6 @@
       return Array.isArray(json)?json:[];
     }
 
-    // ====== RENDER ======
     function renderVdcDashboard(topicsToUse){
       const weekLabels = buildUnifiedWeekLabels(topicsToUse);
       if(!weekLabels.length) return;
@@ -1412,10 +1463,13 @@
       init();
 
       const closeBtn = document.getElementById("topicsModalCloseBtn");
+      const csvBtn = document.getElementById("topicsModalCsvBtn");
       const overlay = document.getElementById("topicsModalOverlay");
       const searchEl = document.getElementById("topicsModalSearch");
 
       closeBtn.addEventListener("click", closeTopicsModal);
+
+      csvBtn.addEventListener("click", exportModalToCsv);
 
       overlay.addEventListener("click", (e)=>{
         if(e.target === overlay) closeTopicsModal();
