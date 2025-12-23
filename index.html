@@ -2,7 +2,7 @@
 <html lang="nb">
 <head>
   <meta charset="UTF-8" />
-  <title>NorTopicStats</title>
+  <title>BCFTopicPulses</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <!-- Trimble Connect Workspace API -->
@@ -210,8 +210,6 @@
     }
     th.sortable{ cursor:pointer; user-select:none; }
     th.sortable:hover{ background:#f1f5f9; }
-
-    /* Modal buttons layout */
     .modalBtns{ display:flex; gap:10px; align-items:center; }
   </style>
 </head>
@@ -224,7 +222,7 @@
     </div>
 
     <div class="titleBlock">
-      <div class="title">NorTopicStats</div>
+      <div class="title">BCFTopicPulses</div>
       <div class="org">Norconsult Norge</div>
       <div class="dev">Developed by Edin Dzakmic, Norconsult, (AI-assisted development)</div>
     </div>
@@ -254,10 +252,64 @@
       <div class="hint">Hvis “Fra” og “Til” er tomme → alle uker.</div>
     </div>
 
-    <!-- ===== VDC DASHBOARD ===== -->
+    <!-- ===== TOPIC DASHBOARD (PRIORITERT REKKEFØLGE) ===== -->
+    <div class="sectionTitle">
+      Topic dashboard
+      <small>Fag • Trend • Cycle time • Øvrige indikatorer</small>
+    </div>
+
+    <div class="cards">
+      <!-- 1) Fag (Tag): antall + status -->
+      <div class="card">
+        <h2>Fag (Tag): antall saker + statusoversikt</h2>
+        <div class="divider"></div>
+        <canvas id="tagDisciplineChart"></canvas>
+        <div class="tableWrap" id="tagStatusTableWrap"></div>
+        <div class="small-text">
+          Klikk på et kakestykke for å åpne en filtrert topics-liste (i samme extension) – sortert etter dato.
+        </div>
+      </div>
+
+      <!-- 2) Status trend -->
+      <div class="card">
+        <h2>Topics per Status over tid (linje)</h2>
+        <div class="divider"></div>
+        <canvas id="statusLineChart"></canvas>
+      </div>
+
+      <!-- 3) Type trend -->
+      <div class="card">
+        <h2>Topics per Type over tid (linje)</h2>
+        <div class="divider"></div>
+        <canvas id="typeLineChart"></canvas>
+      </div>
+
+      <!-- 4) Priority trend -->
+      <div class="card">
+        <h2>Topics per Priority over tid (linje)</h2>
+        <div class="divider"></div>
+        <canvas id="priorityLineChart"></canvas>
+      </div>
+
+      <!-- 5) Avg cycle time -->
+      <div class="card">
+        <h2>Gjennomsnittlig tid fra opprettet → lukket</h2>
+        <div class="divider"></div>
+        <canvas id="avgCycleTimeChart"></canvas>
+      </div>
+
+      <!-- Øvrige (best grouping) -->
+      <div class="card">
+        <h2>Opprettede Topics over tid</h2>
+        <div class="divider"></div>
+        <canvas id="createdOverTimeChart"></canvas>
+      </div>
+    </div>
+
+    <!-- ===== VDC DASHBOARD (GROUPED) ===== -->
     <div class="sectionTitle">
       VDC dashboard
-      <small>Flow • WIP • Backlog • Aging • Cycle time • CFD • Aging per fag</small>
+      <small>Flow • Backlog/WIP • Aging • Cycle time • CFD</small>
     </div>
 
     <div class="cards">
@@ -290,6 +342,15 @@
       </div>
 
       <div class="card">
+        <h2>Alder per fag (Tag) – åpne saker</h2>
+        <div class="divider"></div>
+        <canvas id="agingByTagChart"></canvas>
+        <div class="small-text">
+          Stacked buckets per fag (Tag) ved periodens slutt: 0–7, 8–14, 15–30, 31–60, 60+ dager.
+        </div>
+      </div>
+
+      <div class="card">
         <h2>Cycle time (Median + P80)</h2>
         <div class="divider"></div>
         <canvas id="cycleTimeChart"></canvas>
@@ -311,63 +372,6 @@
           OBS: Uten status-historikk er dette en <b>approksimasjon</b>. Vi estimerer “Closed” fra <code>modified_date</code>,
           og resterende saker regnes som åpne (fordelt på nåværende status).
         </div>
-      </div>
-
-      <div class="card">
-        <h2>Alder per fag (Tag) – åpne saker</h2>
-        <div class="divider"></div>
-        <canvas id="agingByTagChart"></canvas>
-        <div class="small-text">
-          Stacked buckets per fag (Tag) ved periodens slutt: 0–7, 8–14, 15–30, 31–60, 60+ dager.
-        </div>
-      </div>
-    </div>
-
-    <!-- ===== TOPIC DASHBOARD ===== -->
-    <div class="sectionTitle">
-      Topic dashboard
-      <small>Opprettet • Status/Type/Priority • Fag (Tag) • Cycle time</small>
-    </div>
-
-    <div class="cards">
-      <div class="card">
-        <h2>Opprettede Topics over tid</h2>
-        <div class="divider"></div>
-        <canvas id="createdOverTimeChart"></canvas>
-      </div>
-
-      <div class="card">
-        <h2>Topics per Status over tid (linje)</h2>
-        <div class="divider"></div>
-        <canvas id="statusLineChart"></canvas>
-      </div>
-
-      <div class="card">
-        <h2>Topics per Type over tid (linje)</h2>
-        <div class="divider"></div>
-        <canvas id="typeLineChart"></canvas>
-      </div>
-
-      <div class="card">
-        <h2>Topics per Priority over tid (linje)</h2>
-        <div class="divider"></div>
-        <canvas id="priorityLineChart"></canvas>
-      </div>
-
-      <div class="card">
-        <h2>Fag (Tag): antall saker + statusoversikt</h2>
-        <div class="divider"></div>
-        <canvas id="tagDisciplineChart"></canvas>
-        <div class="tableWrap" id="tagStatusTableWrap"></div>
-        <div class="small-text">
-          Klikk på et kakestykke for å åpne en filtrert topics-liste (i samme extension) – sortert etter dato.
-        </div>
-      </div>
-
-      <div class="card">
-        <h2>Gjennomsnittlig tid fra opprettet → lukket</h2>
-        <div class="divider"></div>
-        <canvas id="avgCycleTimeChart"></canvas>
       </div>
     </div>
   </main>
@@ -551,7 +555,7 @@
     }
     function getTopicStatus(topic){return safeStr(topic.topic_status||topic.status)||UNKNOWN_LABEL;}
 
-    // ===== Modal helpers =====
+    // ===== Modal (NO POPUPS) =====
     function openTopicsModalForTag(tag){
       modalState.tag = tag;
 
@@ -717,7 +721,7 @@
       metaEl.textContent = `Periode: ${periodLabel} • Antall topics: ${topics.length}/${modalState.topics.length}`;
     }
 
-    // ===== CSV EXPORT (from current modal view) =====
+    // ===== CSV EXPORT (current modal view: search + sort applied) =====
     function csvEscape(value){
       const s = safeStr(value);
       if (s.includes('"') || s.includes(",") || s.includes("\n") || s.includes("\r")) {
@@ -725,14 +729,10 @@
       }
       return s;
     }
-
     function buildModalCsvRows(){
-      // Export exactly what user sees now (search + sort applied)
       const list = applyModalFilterAndSort();
       const rows = [];
-
       rows.push(["Tag", "Opprettet", "Status", "Type", "Priority", "Tittel", "GUID/ID"].map(csvEscape).join(","));
-
       for(const t of list){
         const created = fmtDate(parseDateMaybe(t.creation_date));
         const status = safeStr(t.topic_status||t.status) || UNKNOWN_LABEL;
@@ -740,20 +740,10 @@
         const priority = safeStr(t.priority) || UNKNOWN_LABEL;
         const title = getTopicTitle(t);
         const id = getTopicId(t);
-
-        rows.push([
-          modalState.tag || "",
-          created,
-          status,
-          type,
-          priority,
-          title,
-          id
-        ].map(csvEscape).join(","));
+        rows.push([modalState.tag||"", created, status, type, priority, title, id].map(csvEscape).join(","));
       }
       return rows.join("\r\n");
     }
-
     function downloadCsv(filename, csvText){
       const blob = new Blob([csvText], { type: "text/csv;charset=utf-8" });
       const url = URL.createObjectURL(blob);
@@ -765,20 +755,17 @@
       a.remove();
       URL.revokeObjectURL(url);
     }
-
     function exportModalToCsv(){
       const csv = buildModalCsvRows();
-
       const from=document.getElementById("fromWeekSelect").value;
       const to=document.getElementById("toWeekSelect").value;
       const range = (!from && !to) ? "alle-uker" : `${from||"start"}_to_${to||"slutt"}`;
       const tag = (modalState.tag || "tag").replaceAll(/[^a-zA-Z0-9_-]/g, "_");
-
       const fileName = `BCF_Topics_${tag}_${range}.csv`;
       downloadCsv(fileName, csv);
     }
 
-    // ====== AGG / CHARTS ======
+    // ====== AGG (Topic dashboard) ======
     function aggregateCreatedTotal(topics){
       const buckets=[]; const bucketMap=new Map();
       for(const t of topics){
@@ -790,7 +777,6 @@
       const totals=labels.map(b=>bucketMap.get(b)||0);
       return {labels,totals};
     }
-
     function aggregateCreatedByCategory(topics,getCategory){
       const buckets=[]; const bucketMap=new Map();
       for(const t of topics){
@@ -811,7 +797,6 @@
       for(const k of keys) seriesMap[k]=labels.map(b=>bucketMap.get(b)?.[k]||0);
       return {labels,keys,seriesMap};
     }
-
     function aggregateTagCounts(topics){
       const counts={};
       for(const t of topics){
@@ -821,7 +806,6 @@
       }
       return counts;
     }
-
     function aggregateTagStatusMatrix(topics){
       const matrix={}, totals={}, statusSet=new Set();
       for(const t of topics){
@@ -839,7 +823,6 @@
       const statuses=[...statusSet].sort((a,b)=>a.localeCompare(b));
       return {tags,statuses,matrix,totals};
     }
-
     function renderTagStatusTable(targetEl, tagMatrix){
       const {tags,statuses,matrix,totals}=tagMatrix;
       const header=`<th>Fag (Tag)</th><th class="right">Totalt</th>`+statuses.map(s=>`<th class="right">${escapeHtml(s)}</th>`).join("");
@@ -851,7 +834,6 @@
       }).join("");
       targetEl.innerHTML=`<table><thead><tr>${header}</tr></thead><tbody>${rows}</tbody></table>`;
     }
-
     function aggregateAvgCycleTimeCreationBucket(topics){
       const bucketMap=new Map(); const allDays=[];
       for(const t of topics){
@@ -872,6 +854,7 @@
       return {labels,series,globalLine};
     }
 
+    // ====== AGG (VDC) ======
     function buildUnifiedWeekLabels(topics){
       const weeks=[];
       for(const t of topics){
@@ -880,11 +863,9 @@
       }
       return uniqueSorted(weeks).sort((a,b)=>a.localeCompare(b));
     }
-
     function aggregateCreatedClosedPerWeek(topics, weekLabels){
       const createdMap={}, closedMap={};
       for(const w of weekLabels){ createdMap[w]=0; closedMap[w]=0; }
-
       for(const t of topics){
         const cd=parseDateMaybe(t.creation_date);
         if(cd){
@@ -902,7 +883,6 @@
         closedSeries: weekLabels.map(w=>closedMap[w]||0)
       };
     }
-
     function aggregateBacklogCumulative(createdSeries, closedSeries){
       const out=[]; let cum=0;
       for(let i=0;i<createdSeries.length;i++){
@@ -911,7 +891,6 @@
       }
       return out;
     }
-
     function aggregateWipEndOfWeek(topics, weekLabels){
       const items=topics.map(t=>{
         const created=parseDateMaybe(t.creation_date);
@@ -933,7 +912,6 @@
       }
       return out;
     }
-
     function aggregateAgingOpenBuckets(topics, periodEndDate){
       const buckets={}; for(const b of AGING_BUCKETS) buckets[b.key]=0;
       const endMs=periodEndDate.getTime();
@@ -953,7 +931,6 @@
       }
       return buckets;
     }
-
     function aggregateCycleTimeMedianP80ByCloseWeek(topics, weekLabels){
       const map={}; for(const w of weekLabels) map[w]=[];
       for(const t of topics){
@@ -970,9 +947,7 @@
         p80Series: weekLabels.map(w=>{const p=percentile(map[w]||[],0.80); return p===null?null:Math.round(p);})
       };
     }
-
     function extractDueDate(topic){ return parseDateMaybe(topic.due_date || topic.dueDate || topic.duedate); }
-
     function aggregateDueDateOnTimeLateByCloseWeek(topics, weekLabels){
       const onTime={}, late={};
       for(const w of weekLabels){ onTime[w]=0; late[w]=0; }
@@ -997,7 +972,6 @@
         lateSeries: weekLabels.map(w=>late[w]||0)
       };
     }
-
     function aggregateCfdApprox(topics, weekLabels){
       const statusesSet=new Set();
       for(const t of topics){
@@ -1049,7 +1023,6 @@
       const keys=[...openStatuses, "Closed"];
       return { keys, seriesMap };
     }
-
     function aggregateAgingOpenBucketsByTag(topics, periodEndDate){
       const endMs=periodEndDate.getTime();
       const tagMap={};
@@ -1088,8 +1061,8 @@
       return { tags, buckets, seriesMap };
     }
 
+    // ====== Chart builders ======
     function destroyIf(c){ if(c) c.destroy(); return null; }
-
     function buildBar(ctx, labels, datasets, stacked=false){
       return new Chart(ctx,{
         type:"bar",
@@ -1104,7 +1077,6 @@
         }
       });
     }
-
     function buildLine(ctx, labels, datasets){
       return new Chart(ctx,{
         type:"line",
@@ -1119,17 +1091,10 @@
         }
       });
     }
-
     function buildMultiLine(ctx, labels, keys, seriesMap){
-      const datasets=keys.map(k=>({
-        label:k,
-        data:seriesMap[k],
-        tension:0.25,
-        pointRadius:2
-      }));
+      const datasets=keys.map(k=>({ label:k, data:seriesMap[k], tension:0.25, pointRadius:2 }));
       return buildLine(ctx, labels, datasets);
     }
-
     function buildPieWithCounts(ctx, counts){
       const labels=Object.keys(counts);
       const data=labels.map(l=>counts[l]);
@@ -1172,12 +1137,10 @@
         }
       });
     }
-
     function buildStackedBar(ctx, labels, buckets, seriesMap){
       const datasets=buckets.map(b=>({ label:b, data:seriesMap[b] }));
       return buildBar(ctx, labels, datasets, true);
     }
-
     function buildCfd(ctx, labels, keys, seriesMap){
       const datasets = keys.map((k, idx) => ({
         label: k,
@@ -1200,160 +1163,117 @@
       });
     }
 
-    async function fetchTopics(projectId){
-      if(!accessToken) throw new Error("Mangler accessToken – kunne ikke hente Topics.");
-      const url=`${TOPICS_API_BASE}/bcf/3.0/projects/${encodeURIComponent(projectId)}/topics`;
-
-      const resp=await fetch(url,{
-        method:"GET",
-        headers:{ "Authorization":`Bearer ${accessToken}`, "Accept":"application/json" }
-      });
-
-      if(!resp.ok){
-        const text=await resp.text().catch(()=> "");
-        throw new Error(`Topics API-feil (${resp.status}): ${text || resp.statusText}`);
-      }
-
-      const json=await resp.json();
-      return Array.isArray(json)?json:[];
-    }
-
+    // ====== Render ======
     function renderVdcDashboard(topicsToUse){
       const weekLabels = buildUnifiedWeekLabels(topicsToUse);
       if(!weekLabels.length) return;
-
       const periodEndDate = getPeriodEndDateFromSelection(weekLabels);
 
       const cc=aggregateCreatedClosedPerWeek(topicsToUse, weekLabels);
       createdClosedChart=destroyIf(createdClosedChart);
-      createdClosedChart=buildBar(
-        document.getElementById("createdClosedChart").getContext("2d"),
-        weekLabels,
-        [{label:"Created",data:cc.createdSeries},{label:"Closed",data:cc.closedSeries}],
-        false
-      );
+      createdClosedChart=buildBar(document.getElementById("createdClosedChart").getContext("2d"), weekLabels,
+        [{label:"Created",data:cc.createdSeries},{label:"Closed",data:cc.closedSeries}], false);
 
       const backlogSeries=aggregateBacklogCumulative(cc.createdSeries, cc.closedSeries);
       backlogChart=destroyIf(backlogChart);
-      backlogChart=buildLine(
-        document.getElementById("backlogChart").getContext("2d"),
-        weekLabels,
-        [{label:"Backlog (kumulativ)",data:backlogSeries,tension:0.25,pointRadius:2}]
-      );
+      backlogChart=buildLine(document.getElementById("backlogChart").getContext("2d"), weekLabels,
+        [{label:"Backlog (kumulativ)",data:backlogSeries,tension:0.25,pointRadius:2}]);
 
       const wipSeries=aggregateWipEndOfWeek(topicsToUse, weekLabels);
       wipChart=destroyIf(wipChart);
-      wipChart=buildLine(
-        document.getElementById("wipChart").getContext("2d"),
-        weekLabels,
-        [{label:"WIP (åpne ved ukeslutt)",data:wipSeries,tension:0.25,pointRadius:2}]
-      );
+      wipChart=buildLine(document.getElementById("wipChart").getContext("2d"), weekLabels,
+        [{label:"WIP (åpne ved ukeslutt)",data:wipSeries,tension:0.25,pointRadius:2}]);
 
       const aging=aggregateAgingOpenBuckets(topicsToUse, periodEndDate);
       agingChart=destroyIf(agingChart);
-      agingChart=buildBar(
-        document.getElementById("agingChart").getContext("2d"),
-        Object.keys(aging),
-        [{label:"Åpne saker", data:Object.keys(aging).map(k=>aging[k])}],
-        false
-      );
+      agingChart=buildBar(document.getElementById("agingChart").getContext("2d"),
+        Object.keys(aging), [{label:"Åpne saker", data:Object.keys(aging).map(k=>aging[k])}], false);
 
       const ct=aggregateCycleTimeMedianP80ByCloseWeek(topicsToUse, weekLabels);
       cycleTimeChart=destroyIf(cycleTimeChart);
-      cycleTimeChart=buildLine(
-        document.getElementById("cycleTimeChart").getContext("2d"),
-        weekLabels,
-        [
-          {label:"Median (dager)",data:ct.medianSeries,tension:0.25,pointRadius:2},
-          {label:"P80 (dager)",data:ct.p80Series,tension:0.25,pointRadius:2}
-        ]
-      );
+      cycleTimeChart=buildLine(document.getElementById("cycleTimeChart").getContext("2d"), weekLabels,
+        [{label:"Median (dager)",data:ct.medianSeries,tension:0.25,pointRadius:2},
+         {label:"P80 (dager)",data:ct.p80Series,tension:0.25,pointRadius:2}]);
 
       const dd=aggregateDueDateOnTimeLateByCloseWeek(topicsToUse, weekLabels);
       const note=document.getElementById("dueDateNote");
       dueDateChart=destroyIf(dueDateChart);
-
       if(!dd.foundAnyDue){
         note.textContent="Ingen topics med due_date funnet i datagrunnlaget (grafen viser 0).";
-        dueDateChart=buildBar(
-          document.getElementById("dueDateChart").getContext("2d"),
-          ["–"],
-          [{label:"On-time",data:[0]},{label:"Late",data:[0]}],
-          true
-        );
+        dueDateChart=buildBar(document.getElementById("dueDateChart").getContext("2d"), ["–"],
+          [{label:"On-time",data:[0]},{label:"Late",data:[0]}], true);
       } else {
         note.textContent="Lukkede saker per uke: on-time (closed <= due_date) vs late (closed > due_date).";
-        dueDateChart=buildBar(
-          document.getElementById("dueDateChart").getContext("2d"),
-          weekLabels,
-          [{label:"On-time",data:dd.onTimeSeries},{label:"Late",data:dd.lateSeries}],
-          true
-        );
+        dueDateChart=buildBar(document.getElementById("dueDateChart").getContext("2d"), weekLabels,
+          [{label:"On-time",data:dd.onTimeSeries},{label:"Late",data:dd.lateSeries}], true);
       }
 
       const cfd=aggregateCfdApprox(topicsToUse, weekLabels);
       cfdChart=destroyIf(cfdChart);
-      cfdChart=buildCfd(
-        document.getElementById("cfdChart").getContext("2d"),
-        weekLabels,
-        cfd.keys,
-        cfd.seriesMap
-      );
+      cfdChart=buildCfd(document.getElementById("cfdChart").getContext("2d"), weekLabels, cfd.keys, cfd.seriesMap);
 
       const abt=aggregateAgingOpenBucketsByTag(topicsToUse, periodEndDate);
       agingByTagChart=destroyIf(agingByTagChart);
-      agingByTagChart=buildStackedBar(
-        document.getElementById("agingByTagChart").getContext("2d"),
-        abt.tags,
-        abt.buckets,
-        abt.seriesMap
-      );
+      agingByTagChart=buildStackedBar(document.getElementById("agingByTagChart").getContext("2d"),
+        abt.tags, abt.buckets, abt.seriesMap);
     }
 
     function renderTopicDashboard(topicsToUse){
-      const totalAgg=aggregateCreatedTotal(topicsToUse);
-      createdOverTimeChart=destroyIf(createdOverTimeChart);
-      createdOverTimeChart=buildBar(
-        document.getElementById("createdOverTimeChart").getContext("2d"),
-        totalAgg.labels,
-        [{label:"Opprettede topics",data:totalAgg.totals}],
-        false
-      );
+      // 1) Tag pie + table
+      const tagCounts=aggregateTagCounts(topicsToUse);
+      tagDisciplineChart=destroyIf(tagDisciplineChart);
+      tagDisciplineChart=buildPieWithCounts(document.getElementById("tagDisciplineChart").getContext("2d"), tagCounts);
+      renderTagStatusTable(document.getElementById("tagStatusTableWrap"), aggregateTagStatusMatrix(topicsToUse));
 
+      // 2) Status line
       const byStatus=aggregateCreatedByCategory(topicsToUse,t=>(t.topic_status||t.status));
       statusLineChart=destroyIf(statusLineChart);
       statusLineChart=buildMultiLine(document.getElementById("statusLineChart").getContext("2d"), byStatus.labels, byStatus.keys, byStatus.seriesMap);
 
+      // 3) Type line
       const byType=aggregateCreatedByCategory(topicsToUse,t=>(t.topic_type||t.type));
       typeLineChart=destroyIf(typeLineChart);
       typeLineChart=buildMultiLine(document.getElementById("typeLineChart").getContext("2d"), byType.labels, byType.keys, byType.seriesMap);
 
+      // 4) Priority line
       const byPriority=aggregateCreatedByCategory(topicsToUse,t=>(t.priority));
       priorityLineChart=destroyIf(priorityLineChart);
       priorityLineChart=buildMultiLine(document.getElementById("priorityLineChart").getContext("2d"), byPriority.labels, byPriority.keys, byPriority.seriesMap);
 
-      const tagCounts=aggregateTagCounts(topicsToUse);
-      tagDisciplineChart=destroyIf(tagDisciplineChart);
-      tagDisciplineChart=buildPieWithCounts(document.getElementById("tagDisciplineChart").getContext("2d"), tagCounts);
-
-      renderTagStatusTable(document.getElementById("tagStatusTableWrap"), aggregateTagStatusMatrix(topicsToUse));
-
+      // 5) Avg cycle time per creation-week (+ global line)
       const cycleAgg=aggregateAvgCycleTimeCreationBucket(topicsToUse);
       avgCycleTimeChart=destroyIf(avgCycleTimeChart);
-      avgCycleTimeChart=buildLine(
-        document.getElementById("avgCycleTimeChart").getContext("2d"),
-        cycleAgg.labels,
-        [
-          {label:"Snitt per uke (dager)",data:cycleAgg.series,tension:0.25,pointRadius:2},
-          {label:"Globalt snitt (dager)",data:cycleAgg.globalLine,tension:0,borderDash:[6,4],pointRadius:0}
-        ]
-      );
+      avgCycleTimeChart=buildLine(document.getElementById("avgCycleTimeChart").getContext("2d"), cycleAgg.labels,
+        [{label:"Snitt per uke (dager)",data:cycleAgg.series,tension:0.25,pointRadius:2},
+         {label:"Globalt snitt (dager)",data:cycleAgg.globalLine,tension:0,borderDash:[6,4],pointRadius:0}]);
+
+      // Remaining: created per week
+      const totalAgg=aggregateCreatedTotal(topicsToUse);
+      createdOverTimeChart=destroyIf(createdOverTimeChart);
+      createdOverTimeChart=buildBar(document.getElementById("createdOverTimeChart").getContext("2d"), totalAgg.labels,
+        [{label:"Opprettede topics",data:totalAgg.totals}], false);
     }
 
     function renderAll(topicsFiltered){
       currentFilteredTopics = topicsFiltered;
-      renderVdcDashboard(topicsFiltered);
       renderTopicDashboard(topicsFiltered);
+      renderVdcDashboard(topicsFiltered);
+    }
+
+    // ====== API ======
+    async function fetchTopics(projectId){
+      if(!accessToken) throw new Error("Mangler accessToken – kunne ikke hente Topics.");
+      const url=`${TOPICS_API_BASE}/bcf/3.0/projects/${encodeURIComponent(projectId)}/topics`;
+      const resp=await fetch(url,{
+        method:"GET",
+        headers:{ "Authorization":`Bearer ${accessToken}`, "Accept":"application/json" }
+      });
+      if(!resp.ok){
+        const text=await resp.text().catch(()=> "");
+        throw new Error(`Topics API-feil (${resp.status}): ${text || resp.statusText}`);
+      }
+      const json=await resp.json();
+      return Array.isArray(json)?json:[];
     }
 
     async function refreshData(){
@@ -1372,7 +1292,6 @@
         }
 
         populateWeekRangeSelectors(allTopicsWithDates);
-
         const filtered=filterTopicsByWeekRange(allTopicsWithDates);
         renderAll(filtered);
 
@@ -1444,7 +1363,7 @@
       }
     }
 
-    // UI events
+    // ====== UI events ======
     document.getElementById("applyWeekBtn").addEventListener("click", ()=>{
       if(!allTopicsWithDates.length) return;
       const filtered=filterTopicsByWeekRange(allTopicsWithDates);
@@ -1458,7 +1377,7 @@
 
     document.getElementById("refreshBtn").addEventListener("click", refreshData);
 
-    // Modal events
+    // Modal button wiring + init
     document.addEventListener("DOMContentLoaded", ()=>{
       init();
 
@@ -1468,16 +1387,10 @@
       const searchEl = document.getElementById("topicsModalSearch");
 
       closeBtn.addEventListener("click", closeTopicsModal);
-
       csvBtn.addEventListener("click", exportModalToCsv);
 
-      overlay.addEventListener("click", (e)=>{
-        if(e.target === overlay) closeTopicsModal();
-      });
-
-      document.addEventListener("keydown", (e)=>{
-        if(e.key === "Escape") closeTopicsModal();
-      });
+      overlay.addEventListener("click", (e)=>{ if(e.target === overlay) closeTopicsModal(); });
+      document.addEventListener("keydown", (e)=>{ if(e.key === "Escape") closeTopicsModal(); });
 
       searchEl.addEventListener("input", ()=>{
         modalState.search = searchEl.value || "";
