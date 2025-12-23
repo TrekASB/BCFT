@@ -308,7 +308,7 @@
         <canvas id="tagDisciplineChart"></canvas>
         <div class="tableWrap" id="tagStatusTableWrap"></div>
         <div class="small-text">
-          Kakediagrammet viser % pr slice (tooltip viser både antall og %).
+          Klikk på et kakestykke for å åpne en egen liste for valgt fag (sortert etter dato).
         </div>
       </div>
 
@@ -322,16 +322,13 @@
 
   <script>
     // ====== Registrer DataLabels-plugin for % på kakediagram ======
-    if (window.ChartDataLabels) {
-      Chart.register(ChartDataLabels);
-    }
+    if (window.ChartDataLabels) Chart.register(ChartDataLabels);
 
     // ====== KONFIG ======
     const TOPICS_API_BASE = "https://open21.connect.trimble.com";
     const CLOSED_STATUSES = new Set(["Closed", "Done", "Resolved", "Approved"]);
     const UNKNOWN_LABEL = "Ikke satt";
 
-    // Buckets for aging
     const AGING_BUCKETS = [
       { key: "0-7",  min: 0,  max: 7 },
       { key: "8-14", min: 8,  max: 14 },
@@ -343,6 +340,7 @@
     // STATE
     let API=null, accessToken=null, currentProjectId=null;
     let allTopics=[], allTopicsWithDates=[];
+    let currentFilteredTopics=[]; // <— brukes av pie-click for å lage listevindu
 
     // VDC charts
     let createdClosedChart=null, backlogChart=null, wipChart=null, agingChart=null, cycleTimeChart=null, dueDateChart=null;
@@ -362,9 +360,15 @@
 
     function safeStr(v){return (v===null||v===undefined)?"":String(v).trim();}
     function parseDateMaybe(v){const s=safeStr(v); if(!s) return null; const d=new Date(s); return Number.isNaN(d.getTime())?null:d;}
+    function fmtDate(d){
+      if(!d) return "";
+      const dd = String(d.getDate()).padStart(2,"0");
+      const mm = String(d.getMonth()+1).padStart(2,"0");
+      const yy = d.getFullYear();
+      return `${dd}.${mm}.${yy}`;
+    }
     function pad2(n){return String(n).padStart(2,"0");}
 
-    // ISO week key: YYYY-Www
     function getISOWeekKey(date){
       const d=new Date(Date.UTC(date.getFullYear(),date.getMonth(),date.getDate()));
       const dayNum=d.getUTCDay()||7;
@@ -377,7 +381,6 @@
     function compareWeekKeys(a,b){return a.localeCompare(b);}
     function uniqueSorted(arr){return [...new Set(arr)].sort((a,b)=>a.localeCompare(b));}
 
-    // week range: start/end (UTC)
     function isoWeekToDateRange(weekKey){
       const [yPart,wPart]=weekKey.split("-W");
       const year=Number(yPart), week=Number(wPart);
@@ -468,6 +471,102 @@
       return [...new Set(candidates.map(safeStr).filter(Boolean))];
     }
     function getTopicStatus(topic){return safeStr(topic.topic_status||topic.status)||UNKNOWN_LABEL;}
+
+    // ====== NEW: Open window with topics for a given tag ======
+    function openTopicsWindowForTag(tag){
+      const topics = (currentFilteredTopics || []).filter(t=>{
+        const tags = extractTags(t);
+        if(tag === UNKNOWN_LABEL) return tags.length === 0;
+        return tags.includes(tag);
+      });
+
+      // sort by creation_date (newest first)
+      topics.sort((a,b)=>{
+        const da=parseDateMaybe(a.creation_date)?.getTime() ?? 0;
+        const db=parseDateMaybe(b.creation_date)?.getTime() ?? 0;
+        return db-da;
+      });
+
+      const from=document.getElementById("fromWeekSelect").value;
+      const to=document.getElementById("toWeekSelect").value;
+      const periodLabel = (!from && !to) ? "Alle uker" : `${from||"(start)"} → ${to||"(slutt)"}`;
+
+      const win = window.open("", "_blank", "noopener,noreferrer,width=1200,height=800");
+      if(!win){
+        alert("Popup ble blokkert av nettleser. Tillat popups for å åpne topics-liste.");
+        return;
+      }
+
+      const rows = topics.map(t=>{
+        const created = parseDateMaybe(t.creation_date);
+        const status = safeStr(t.topic_status||t.status) || UNKNOWN_LABEL;
+        const type = safeStr(t.topic_type||t.type) || UNKNOWN_LABEL;
+        const priority = safeStr(t.priority) || UNKNOWN_LABEL;
+        const title = safeStr(t.title) || safeStr(t.topic_title) || "(uten tittel)";
+        const guid = safeStr(t.guid || t.topic_guid || t.id || t.topic_id);
+        return `
+          <tr>
+            <td>${escapeHtml(fmtDate(created))}</td>
+            <td>${escapeHtml(status)}</td>
+            <td>${escapeHtml(type)}</td>
+            <td>${escapeHtml(priority)}</td>
+            <td title="${escapeHtml(title)}">${escapeHtml(title)}</td>
+            <td><code>${escapeHtml(guid)}</code></td>
+          </tr>
+        `;
+      }).join("");
+
+      const html = `
+<!doctype html>
+<html lang="nb">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Topics – ${escapeHtml(tag)}</title>
+  <style>
+    :root{ font-family: system-ui, -apple-system, Segoe UI, sans-serif; }
+    body{ margin:16px; color:#111827; }
+    h1{ margin:0 0 6px 0; font-size:18px; }
+    .meta{ color:#6b7280; font-size:12px; margin-bottom:14px; }
+    .pill{ display:inline-block; padding:2px 8px; border:1px solid #e5e7eb; border-radius:999px; background:#f8fafc; font-weight:700; }
+    table{ width:100%; border-collapse:collapse; font-size:12px; }
+    th, td{ padding:8px 10px; border-bottom:1px solid #e5e7eb; text-align:left; white-space:nowrap; }
+    th{ position:sticky; top:0; background:#fafafa; z-index:1; }
+    td:nth-child(5){ width:100%; white-space:normal; }
+    code{ font-size:11px; }
+    .note{ margin-top:10px; color:#6b7280; font-size:12px; }
+  </style>
+</head>
+<body>
+  <h1>BCF Topics for fag (Tag): <span class="pill">${escapeHtml(tag)}</span></h1>
+  <div class="meta">Periode: ${escapeHtml(periodLabel)} • Antall topics: ${topics.length}</div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Opprettet</th>
+        <th>Status</th>
+        <th>Type</th>
+        <th>Priority</th>
+        <th>Tittel</th>
+        <th>GUID/ID</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rows || `<tr><td colspan="6">Ingen topics funnet for valgt fag.</td></tr>`}
+    </tbody>
+  </table>
+
+  <div class="note">
+    Tips: Bruk GUID/ID til å søke opp topic i Trimble Connect (BCF Topics) hvis du vil åpne den direkte.
+  </div>
+</body>
+</html>`;
+
+      win.document.open();
+      win.document.write(html);
+      win.document.close();
+    }
 
     // ====== AGG: TOPIC DASHBOARD ======
     function aggregateCreatedTotal(topics){
@@ -570,7 +669,7 @@
         const cd=parseDateMaybe(t.creation_date); if(cd) weeks.push(bucketKey(cd));
         const closed=getClosedDateIfClosed(t); if(closed) weeks.push(bucketKey(closed));
       }
-      return uniqueSorted(weeks).sort(compareWeekKeys);
+      return uniqueSorted(weeks).sort((a,b)=>a.localeCompare(b));
     }
 
     function aggregateCreatedClosedPerWeek(topics, weekLabels){
@@ -690,7 +789,6 @@
       };
     }
 
-    // ====== CFD (approx) ======
     function aggregateCfdApprox(topics, weekLabels){
       const statusesSet=new Set();
       for(const t of topics){
@@ -743,7 +841,6 @@
       return { keys, seriesMap };
     }
 
-    // ====== Aging per Tag (open items) ======
     function aggregateAgingOpenBucketsByTag(topics, periodEndDate){
       const endMs=periodEndDate.getTime();
       const tagMap={};
@@ -825,7 +922,7 @@
       return buildLine(ctx, labels, datasets);
     }
 
-    // ✅ PIE with % labels on slices
+    // ✅ PIE with % labels on slices + click-to-open list window
     function buildPieWithCounts(ctx, counts){
       const labels=Object.keys(counts);
       const data=labels.map(l=>counts[l]);
@@ -836,6 +933,12 @@
         data:{labels,datasets:[{data}]},
         options:{
           responsive:true,
+          onClick: (evt, elements, chart) => {
+            if(!elements || !elements.length) return;
+            const idx = elements[0].index;
+            const tag = chart.data.labels[idx];
+            openTopicsWindowForTag(tag);
+          },
           plugins:{
             legend:{display:true},
             tooltip:{
@@ -852,7 +955,6 @@
                 const sum = context.chart.data.datasets[0].data.reduce((a,b)=>a+b,0);
                 if(!sum) return "";
                 const pct = (value/sum)*100;
-                // skjul veldig små slices for lesbarhet
                 if (pct < 3) return "";
                 return `${pct.toFixed(0)}%`;
               },
@@ -865,10 +967,7 @@
     }
 
     function buildStackedBar(ctx, labels, buckets, seriesMap){
-      const datasets=buckets.map(b=>({
-        label:b,
-        data:seriesMap[b]
-      }));
+      const datasets=buckets.map(b=>({ label:b, data:seriesMap[b] }));
       return buildBar(ctx, labels, datasets, true);
     }
 
@@ -1028,7 +1127,7 @@
       priorityLineChart=destroyIf(priorityLineChart);
       priorityLineChart=buildMultiLine(document.getElementById("priorityLineChart").getContext("2d"), byPriority.labels, byPriority.keys, byPriority.seriesMap);
 
-      // ✅ Pie now shows % on each slice
+      // Pie shows % + click opens a new window list for that tag
       const tagCounts=aggregateTagCounts(topicsToUse);
       tagDisciplineChart=destroyIf(tagDisciplineChart);
       tagDisciplineChart=buildPieWithCounts(document.getElementById("tagDisciplineChart").getContext("2d"), tagCounts);
@@ -1048,6 +1147,7 @@
     }
 
     function renderAll(topicsFiltered){
+      currentFilteredTopics = topicsFiltered; // <— IMPORTANT for pie-click
       renderVdcDashboard(topicsFiltered);
       renderTopicDashboard(topicsFiltered);
     }
