@@ -8,8 +8,9 @@
   <!-- Trimble Connect Workspace API -->
   <script src="https://components.connect.trimble.com/trimble-connect-workspace-api/index.js"></script>
 
-  <!-- Chart.js -->
+  <!-- Chart.js + DataLabels plugin (for % on pie slices) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
 
   <style>
     :root{
@@ -250,7 +251,6 @@
         <div class="small-text" id="dueDateNote">Vises kun hvis <code>due_date</code> finnes.</div>
       </div>
 
-      <!-- NEW: CFD -->
       <div class="card">
         <h2>Cumulative Flow Diagram (CFD)</h2>
         <div class="divider"></div>
@@ -261,7 +261,6 @@
         </div>
       </div>
 
-      <!-- NEW: Aging per fag -->
       <div class="card">
         <h2>Alder per fag (Tag) – åpne saker</h2>
         <div class="divider"></div>
@@ -308,6 +307,9 @@
         <div class="divider"></div>
         <canvas id="tagDisciplineChart"></canvas>
         <div class="tableWrap" id="tagStatusTableWrap"></div>
+        <div class="small-text">
+          Kakediagrammet viser % pr slice (tooltip viser både antall og %).
+        </div>
       </div>
 
       <div class="card">
@@ -319,6 +321,11 @@
   </main>
 
   <script>
+    // ====== Registrer DataLabels-plugin for % på kakediagram ======
+    if (window.ChartDataLabels) {
+      Chart.register(ChartDataLabels);
+    }
+
     // ====== KONFIG ======
     const TOPICS_API_BASE = "https://open21.connect.trimble.com";
     const CLOSED_STATUSES = new Set(["Closed", "Done", "Resolved", "Approved"]);
@@ -683,21 +690,13 @@
       };
     }
 
-    // ====== NEW: CFD (approx) ======
+    // ====== CFD (approx) ======
     function aggregateCfdApprox(topics, weekLabels){
-      // We estimate a minimal CFD using available timestamps:
-      // - "Closed" count at weekEnd: topics closed on/before weekEnd (based on modified_date).
-      // - All others that exist by weekEnd are grouped by their CURRENT status (snapshot at now).
-      //
-      // This is NOT a true CFD without status history, but gives a useful "shape":
-      // total grows with created; closed grows with closures; remaining stack splits by current status.
-
       const statusesSet=new Set();
       for(const t of topics){
         const st=getTopicStatus(t);
         if(!CLOSED_STATUSES.has(st)) statusesSet.add(st);
       }
-      // ensure stable order
       const openStatuses=[...statusesSet].sort((a,b)=>a.localeCompare(b));
 
       const seriesMap={};
@@ -706,7 +705,7 @@
 
       const items=topics.map(t=>{
         const created=parseDateMaybe(t.creation_date);
-        const closed=getClosedDateIfClosed(t); // may be null
+        const closed=getClosedDateIfClosed(t);
         const status=getTopicStatus(t);
         return {created,closed,status};
       }).filter(x=>x.created);
@@ -715,22 +714,19 @@
         const {end}=isoWeekToDateRange(w);
         const endMs=end.getTime();
 
-        // counts
         let closedCount=0;
         const openCountByStatus={};
         for(const st of openStatuses) openCountByStatus[st]=0;
 
         for(const it of items){
-          if(it.created.getTime()>endMs) continue; // not yet created
+          if(it.created.getTime()>endMs) continue;
 
           if(it.closed && it.closed.getTime()<=endMs){
             closedCount++;
           } else {
-            // open at endMs; categorize by CURRENT status (approx)
             const st = (CLOSED_STATUSES.has(it.status) ? "Open" : it.status);
             if(st in openCountByStatus) openCountByStatus[st] += 1;
             else {
-              // if status is missing/new
               if(!openCountByStatus[UNKNOWN_LABEL]) openCountByStatus[UNKNOWN_LABEL]=0;
               openCountByStatus[UNKNOWN_LABEL] += 1;
             }
@@ -747,12 +743,9 @@
       return { keys, seriesMap };
     }
 
-    // ====== NEW: Aging per Tag (open items) ======
+    // ====== Aging per Tag (open items) ======
     function aggregateAgingOpenBucketsByTag(topics, periodEndDate){
-      // returns { tags:[...], buckets:[...], seriesMap:{bucketKey:[counts per tag]} } for stacked bar
       const endMs=periodEndDate.getTime();
-
-      // tag -> bucketKey -> count
       const tagMap={};
 
       for(const t of topics){
@@ -767,7 +760,7 @@
         const used=tags.length?tags:[UNKNOWN_LABEL];
 
         const ageDays=Math.floor((endMs-created.getTime())/(1000*60*60*24));
-        let bucket = "60+";
+        let bucket="60+";
         for(const b of AGING_BUCKETS){
           if(ageDays>=b.min && ageDays<=b.max){ bucket=b.key; break; }
         }
@@ -781,7 +774,6 @@
       const tags=Object.keys(tagMap).sort((a,b)=>a.localeCompare(b));
       const buckets=AGING_BUCKETS.map(b=>b.key);
 
-      // build per bucket arrays aligned to tags
       const seriesMap={};
       for(const b of buckets){
         seriesMap[b]=tags.map(tag => tagMap[tag]?.[b] || 0);
@@ -833,9 +825,12 @@
       return buildLine(ctx, labels, datasets);
     }
 
+    // ✅ PIE with % labels on slices
     function buildPieWithCounts(ctx, counts){
       const labels=Object.keys(counts);
       const data=labels.map(l=>counts[l]);
+      const total = data.reduce((a,b)=>a+b,0);
+
       return new Chart(ctx,{
         type:"pie",
         data:{labels,datasets:[{data}]},
@@ -843,7 +838,27 @@
           responsive:true,
           plugins:{
             legend:{display:true},
-            tooltip:{callbacks:{label:(c)=>`${c.label}: ${c.parsed??0}`}}
+            tooltip:{
+              callbacks:{
+                label:(c)=>{
+                  const v = c.parsed ?? 0;
+                  const pct = total ? (v/total*100) : 0;
+                  return `${c.label}: ${v} (${pct.toFixed(1)}%)`;
+                }
+              }
+            },
+            datalabels:{
+              formatter:(value, context)=>{
+                const sum = context.chart.data.datasets[0].data.reduce((a,b)=>a+b,0);
+                if(!sum) return "";
+                const pct = (value/sum)*100;
+                // skjul veldig små slices for lesbarhet
+                if (pct < 3) return "";
+                return `${pct.toFixed(0)}%`;
+              },
+              font:{ weight:"bold", size:12 },
+              color:"#111827"
+            }
           }
         }
       });
@@ -858,7 +873,6 @@
     }
 
     function buildCfd(ctx, labels, keys, seriesMap){
-      // stacked area using line chart with fill
       const datasets = keys.map((k, idx) => ({
         label: k,
         data: seriesMap[k],
@@ -906,7 +920,6 @@
 
       const periodEndDate = getPeriodEndDateFromSelection(weekLabels);
 
-      // Created vs Closed
       const cc=aggregateCreatedClosedPerWeek(topicsToUse, weekLabels);
       createdClosedChart=destroyIf(createdClosedChart);
       createdClosedChart=buildBar(
@@ -916,7 +929,6 @@
         false
       );
 
-      // Backlog cumulative
       const backlogSeries=aggregateBacklogCumulative(cc.createdSeries, cc.closedSeries);
       backlogChart=destroyIf(backlogChart);
       backlogChart=buildLine(
@@ -925,7 +937,6 @@
         [{label:"Backlog (kumulativ)",data:backlogSeries,tension:0.25,pointRadius:2}]
       );
 
-      // WIP
       const wipSeries=aggregateWipEndOfWeek(topicsToUse, weekLabels);
       wipChart=destroyIf(wipChart);
       wipChart=buildLine(
@@ -934,7 +945,6 @@
         [{label:"WIP (åpne ved ukeslutt)",data:wipSeries,tension:0.25,pointRadius:2}]
       );
 
-      // Aging
       const aging=aggregateAgingOpenBuckets(topicsToUse, periodEndDate);
       agingChart=destroyIf(agingChart);
       agingChart=buildBar(
@@ -944,7 +954,6 @@
         false
       );
 
-      // Cycle time median + P80 (close-week)
       const ct=aggregateCycleTimeMedianP80ByCloseWeek(topicsToUse, weekLabels);
       cycleTimeChart=destroyIf(cycleTimeChart);
       cycleTimeChart=buildLine(
@@ -956,7 +965,6 @@
         ]
       );
 
-      // Due date
       const dd=aggregateDueDateOnTimeLateByCloseWeek(topicsToUse, weekLabels);
       const note=document.getElementById("dueDateNote");
       dueDateChart=destroyIf(dueDateChart);
@@ -979,7 +987,6 @@
         );
       }
 
-      // NEW: CFD approx
       const cfd=aggregateCfdApprox(topicsToUse, weekLabels);
       cfdChart=destroyIf(cfdChart);
       cfdChart=buildCfd(
@@ -989,7 +996,6 @@
         cfd.seriesMap
       );
 
-      // NEW: Aging per tag (open)
       const abt=aggregateAgingOpenBucketsByTag(topicsToUse, periodEndDate);
       agingByTagChart=destroyIf(agingByTagChart);
       agingByTagChart=buildStackedBar(
@@ -1001,7 +1007,6 @@
     }
 
     function renderTopicDashboard(topicsToUse){
-      // created total
       const totalAgg=aggregateCreatedTotal(topicsToUse);
       createdOverTimeChart=destroyIf(createdOverTimeChart);
       createdOverTimeChart=buildBar(
@@ -1011,7 +1016,6 @@
         false
       );
 
-      // lines
       const byStatus=aggregateCreatedByCategory(topicsToUse,t=>(t.topic_status||t.status));
       statusLineChart=destroyIf(statusLineChart);
       statusLineChart=buildMultiLine(document.getElementById("statusLineChart").getContext("2d"), byStatus.labels, byStatus.keys, byStatus.seriesMap);
@@ -1024,14 +1028,13 @@
       priorityLineChart=destroyIf(priorityLineChart);
       priorityLineChart=buildMultiLine(document.getElementById("priorityLineChart").getContext("2d"), byPriority.labels, byPriority.keys, byPriority.seriesMap);
 
-      // tag pie + table
+      // ✅ Pie now shows % on each slice
       const tagCounts=aggregateTagCounts(topicsToUse);
       tagDisciplineChart=destroyIf(tagDisciplineChart);
       tagDisciplineChart=buildPieWithCounts(document.getElementById("tagDisciplineChart").getContext("2d"), tagCounts);
 
       renderTagStatusTable(document.getElementById("tagStatusTableWrap"), aggregateTagStatusMatrix(topicsToUse));
 
-      // avg cycle (creation bucket)
       const cycleAgg=aggregateAvgCycleTimeCreationBucket(topicsToUse);
       avgCycleTimeChart=destroyIf(avgCycleTimeChart);
       avgCycleTimeChart=buildLine(
