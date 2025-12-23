@@ -161,6 +161,55 @@
       background:#f8fafc;
       font-weight:700;
     }
+
+    /* ===== Modal (topics list) ===== */
+    #topicsModalOverlay{
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,.35);
+      z-index:9999;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+    }
+    #topicsModal{
+      width:min(1200px, 98vw);
+      max-height:90vh;
+      background:#fff;
+      border:1px solid var(--border);
+      border-radius:16px;
+      overflow:hidden;
+      box-shadow:0 12px 40px rgba(0,0,0,.25);
+      display:flex;
+      flex-direction:column;
+    }
+    .modalHeader{
+      display:flex;
+      gap:12px;
+      align-items:flex-start;
+      justify-content:space-between;
+      padding:12px 12px;
+      background:var(--card);
+      border-bottom:1px solid var(--border);
+    }
+    .modalTitle{ font-weight:900; font-size:14px; }
+    .modalMeta{ font-size:12px; color:var(--muted); margin-top:2px; }
+    .modalActions{ display:flex; gap:10px; align-items:center; }
+    #topicsModalSearch{
+      width:min(420px, 52vw);
+      padding:8px 10px;
+      border-radius:10px;
+      border:1px solid var(--border);
+      background:#fff;
+      font-size:13px;
+    }
+    .modalBody{
+      padding:12px;
+      overflow:auto;
+    }
+    th.sortable{ cursor:pointer; user-select:none; }
+    th.sortable:hover{ background:#f1f5f9; }
   </style>
 </head>
 
@@ -308,7 +357,7 @@
         <canvas id="tagDisciplineChart"></canvas>
         <div class="tableWrap" id="tagStatusTableWrap"></div>
         <div class="small-text">
-          Klikk på et kakestykke for å åpne en egen liste for valgt fag (sortert etter dato).
+          Klikk på et kakestykke for å åpne en filtrert topics-liste (i samme extension) – sortert etter dato.
         </div>
       </div>
 
@@ -319,6 +368,30 @@
       </div>
     </div>
   </main>
+
+  <!-- ===== Topics modal (åpnes ved klikk på kakestykke) ===== -->
+  <div id="topicsModalOverlay">
+    <div id="topicsModal">
+      <div class="modalHeader">
+        <div>
+          <div class="modalTitle">BCF Topics – <span id="topicsModalTag" class="pill"></span></div>
+          <div class="modalMeta" id="topicsModalMeta"></div>
+        </div>
+
+        <div class="modalActions">
+          <input id="topicsModalSearch" type="search" placeholder="Søk i tittel / status / type / priority / id…" />
+          <button class="secondary" id="topicsModalCloseBtn">Lukk</button>
+        </div>
+      </div>
+
+      <div class="modalBody">
+        <div class="tableWrap" id="topicsModalTableWrap"></div>
+        <div class="small-text" style="margin-top:10px;">
+          Klikk på kolonneoverskrift for å sortere. Default: <b>Opprettet (nyeste først)</b>.
+        </div>
+      </div>
+    </div>
+  </div>
 
   <script>
     // ====== Registrer DataLabels-plugin for % på kakediagram ======
@@ -340,7 +413,7 @@
     // STATE
     let API=null, accessToken=null, currentProjectId=null;
     let allTopics=[], allTopicsWithDates=[];
-    let currentFilteredTopics=[]; // <— brukes av pie-click for å lage listevindu
+    let currentFilteredTopics=[];
 
     // VDC charts
     let createdClosedChart=null, backlogChart=null, wipChart=null, agingChart=null, cycleTimeChart=null, dueDateChart=null;
@@ -348,6 +421,15 @@
 
     // Topic charts
     let createdOverTimeChart=null, statusLineChart=null, typeLineChart=null, priorityLineChart=null, tagDisciplineChart=null, avgCycleTimeChart=null;
+
+    // ====== MODAL STATE ======
+    let modalState = {
+      tag: null,
+      topics: [],
+      sortKey: "created",
+      sortDir: "desc",
+      search: ""
+    };
 
     // ====== HELPERS ======
     function escapeHtml(str){return String(str??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");}
@@ -369,6 +451,7 @@
     }
     function pad2(n){return String(n).padStart(2,"0");}
 
+    // ISO week key: YYYY-Www
     function getISOWeekKey(date){
       const d=new Date(Date.UTC(date.getFullYear(),date.getMonth(),date.getDate()));
       const dayNum=d.getUTCDay()||7;
@@ -381,6 +464,7 @@
     function compareWeekKeys(a,b){return a.localeCompare(b);}
     function uniqueSorted(arr){return [...new Set(arr)].sort((a,b)=>a.localeCompare(b));}
 
+    // week range: start/end (UTC)
     function isoWeekToDateRange(weekKey){
       const [yPart,wPart]=weekKey.split("-W");
       const year=Number(yPart), week=Number(wPart);
@@ -472,100 +556,170 @@
     }
     function getTopicStatus(topic){return safeStr(topic.topic_status||topic.status)||UNKNOWN_LABEL;}
 
-    // ====== NEW: Open window with topics for a given tag ======
-    function openTopicsWindowForTag(tag){
+    // ====== MODAL: open list for tag (NO POPUPS) ======
+    function openTopicsModalForTag(tag){
+      modalState.tag = tag;
+
       const topics = (currentFilteredTopics || []).filter(t=>{
         const tags = extractTags(t);
         if(tag === UNKNOWN_LABEL) return tags.length === 0;
         return tags.includes(tag);
       });
 
-      // sort by creation_date (newest first)
-      topics.sort((a,b)=>{
-        const da=parseDateMaybe(a.creation_date)?.getTime() ?? 0;
-        const db=parseDateMaybe(b.creation_date)?.getTime() ?? 0;
-        return db-da;
-      });
+      modalState.topics = topics.slice();
+      modalState.sortKey = "created";
+      modalState.sortDir = "desc";
+      modalState.search = "";
+
+      document.getElementById("topicsModalTag").textContent = tag;
 
       const from=document.getElementById("fromWeekSelect").value;
       const to=document.getElementById("toWeekSelect").value;
       const periodLabel = (!from && !to) ? "Alle uker" : `${from||"(start)"} → ${to||"(slutt)"}`;
+      document.getElementById("topicsModalMeta").textContent = `Periode: ${periodLabel} • Antall topics: ${topics.length}`;
 
-      const win = window.open("", "_blank", "noopener,noreferrer,width=1200,height=800");
-      if(!win){
-        alert("Popup ble blokkert av nettleser. Tillat popups for å åpne topics-liste.");
-        return;
-      }
+      const overlay = document.getElementById("topicsModalOverlay");
+      overlay.style.display = "flex";
+
+      const searchEl = document.getElementById("topicsModalSearch");
+      searchEl.value = "";
+      searchEl.focus();
+
+      renderTopicsModalTable();
+    }
+
+    function closeTopicsModal(){
+      document.getElementById("topicsModalOverlay").style.display = "none";
+    }
+
+    function getTopicTitle(t){
+      return safeStr(t.title) || safeStr(t.topic_title) || "(uten tittel)";
+    }
+    function getTopicId(t){
+      return safeStr(t.guid || t.topic_guid || t.id || t.topic_id);
+    }
+
+    function applyModalFilterAndSort(){
+      const q = (modalState.search || "").toLowerCase();
+
+      let list = modalState.topics.filter(t=>{
+        if(!q) return true;
+        const created = fmtDate(parseDateMaybe(t.creation_date));
+        const status = safeStr(t.topic_status||t.status) || UNKNOWN_LABEL;
+        const type = safeStr(t.topic_type||t.type) || UNKNOWN_LABEL;
+        const priority = safeStr(t.priority) || UNKNOWN_LABEL;
+        const title = getTopicTitle(t);
+        const id = getTopicId(t);
+
+        const hay = `${created} ${status} ${type} ${priority} ${title} ${id}`.toLowerCase();
+        return hay.includes(q);
+      });
+
+      const dir = modalState.sortDir === "asc" ? 1 : -1;
+
+      list.sort((a,b)=>{
+        const da = parseDateMaybe(a.creation_date);
+        const db = parseDateMaybe(b.creation_date);
+
+        const createdA = da ? da.getTime() : 0;
+        const createdB = db ? db.getTime() : 0;
+
+        const statusA = (safeStr(a.topic_status||a.status)||UNKNOWN_LABEL).toLowerCase();
+        const statusB = (safeStr(b.topic_status||b.status)||UNKNOWN_LABEL).toLowerCase();
+
+        const typeA = (safeStr(a.topic_type||a.type)||UNKNOWN_LABEL).toLowerCase();
+        const typeB = (safeStr(b.topic_type||b.type)||UNKNOWN_LABEL).toLowerCase();
+
+        const prA = (safeStr(a.priority)||UNKNOWN_LABEL).toLowerCase();
+        const prB = (safeStr(b.priority)||UNKNOWN_LABEL).toLowerCase();
+
+        const titleA = getTopicTitle(a).toLowerCase();
+        const titleB = getTopicTitle(b).toLowerCase();
+
+        const idA = getTopicId(a).toLowerCase();
+        const idB = getTopicId(b).toLowerCase();
+
+        let cmp = 0;
+        switch(modalState.sortKey){
+          case "created": cmp = createdA - createdB; break;
+          case "status": cmp = statusA.localeCompare(statusB); break;
+          case "type": cmp = typeA.localeCompare(typeB); break;
+          case "priority": cmp = prA.localeCompare(prB); break;
+          case "title": cmp = titleA.localeCompare(titleB); break;
+          case "id": cmp = idA.localeCompare(idB); break;
+          default: cmp = createdA - createdB;
+        }
+        return cmp * dir;
+      });
+
+      return list;
+    }
+
+    function renderTopicsModalTable(){
+      const wrap = document.getElementById("topicsModalTableWrap");
+      const topics = applyModalFilterAndSort();
+
+      const mkSortArrow = (key) => {
+        if(modalState.sortKey !== key) return "";
+        return modalState.sortDir === "asc" ? " ▲" : " ▼";
+      };
 
       const rows = topics.map(t=>{
         const created = parseDateMaybe(t.creation_date);
         const status = safeStr(t.topic_status||t.status) || UNKNOWN_LABEL;
         const type = safeStr(t.topic_type||t.type) || UNKNOWN_LABEL;
         const priority = safeStr(t.priority) || UNKNOWN_LABEL;
-        const title = safeStr(t.title) || safeStr(t.topic_title) || "(uten tittel)";
-        const guid = safeStr(t.guid || t.topic_guid || t.id || t.topic_id);
+        const title = getTopicTitle(t);
+        const id = getTopicId(t);
+
         return `
           <tr>
             <td>${escapeHtml(fmtDate(created))}</td>
             <td>${escapeHtml(status)}</td>
             <td>${escapeHtml(type)}</td>
             <td>${escapeHtml(priority)}</td>
-            <td title="${escapeHtml(title)}">${escapeHtml(title)}</td>
-            <td><code>${escapeHtml(guid)}</code></td>
+            <td title="${escapeHtml(title)}" style="white-space:normal;">${escapeHtml(title)}</td>
+            <td><code>${escapeHtml(id)}</code></td>
           </tr>
         `;
       }).join("");
 
-      const html = `
-<!doctype html>
-<html lang="nb">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Topics – ${escapeHtml(tag)}</title>
-  <style>
-    :root{ font-family: system-ui, -apple-system, Segoe UI, sans-serif; }
-    body{ margin:16px; color:#111827; }
-    h1{ margin:0 0 6px 0; font-size:18px; }
-    .meta{ color:#6b7280; font-size:12px; margin-bottom:14px; }
-    .pill{ display:inline-block; padding:2px 8px; border:1px solid #e5e7eb; border-radius:999px; background:#f8fafc; font-weight:700; }
-    table{ width:100%; border-collapse:collapse; font-size:12px; }
-    th, td{ padding:8px 10px; border-bottom:1px solid #e5e7eb; text-align:left; white-space:nowrap; }
-    th{ position:sticky; top:0; background:#fafafa; z-index:1; }
-    td:nth-child(5){ width:100%; white-space:normal; }
-    code{ font-size:11px; }
-    .note{ margin-top:10px; color:#6b7280; font-size:12px; }
-  </style>
-</head>
-<body>
-  <h1>BCF Topics for fag (Tag): <span class="pill">${escapeHtml(tag)}</span></h1>
-  <div class="meta">Periode: ${escapeHtml(periodLabel)} • Antall topics: ${topics.length}</div>
+      wrap.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th class="sortable" data-sort="created">Opprettet${mkSortArrow("created")}</th>
+              <th class="sortable" data-sort="status">Status${mkSortArrow("status")}</th>
+              <th class="sortable" data-sort="type">Type${mkSortArrow("type")}</th>
+              <th class="sortable" data-sort="priority">Priority${mkSortArrow("priority")}</th>
+              <th class="sortable" data-sort="title">Tittel${mkSortArrow("title")}</th>
+              <th class="sortable" data-sort="id">GUID/ID${mkSortArrow("id")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows || `<tr><td colspan="6">Ingen topics funnet for valgt fag / filter.</td></tr>`}
+          </tbody>
+        </table>
+      `;
 
-  <table>
-    <thead>
-      <tr>
-        <th>Opprettet</th>
-        <th>Status</th>
-        <th>Type</th>
-        <th>Priority</th>
-        <th>Tittel</th>
-        <th>GUID/ID</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${rows || `<tr><td colspan="6">Ingen topics funnet for valgt fag.</td></tr>`}
-    </tbody>
-  </table>
+      wrap.querySelectorAll("th.sortable").forEach(th=>{
+        th.addEventListener("click", ()=>{
+          const key = th.getAttribute("data-sort");
+          if(modalState.sortKey === key){
+            modalState.sortDir = (modalState.sortDir === "asc") ? "desc" : "asc";
+          } else {
+            modalState.sortKey = key;
+            modalState.sortDir = (key === "created") ? "desc" : "asc";
+          }
+          renderTopicsModalTable();
+        });
+      });
 
-  <div class="note">
-    Tips: Bruk GUID/ID til å søke opp topic i Trimble Connect (BCF Topics) hvis du vil åpne den direkte.
-  </div>
-</body>
-</html>`;
-
-      win.document.open();
-      win.document.write(html);
-      win.document.close();
+      const metaEl = document.getElementById("topicsModalMeta");
+      const from=document.getElementById("fromWeekSelect").value;
+      const to=document.getElementById("toWeekSelect").value;
+      const periodLabel = (!from && !to) ? "Alle uker" : `${from||"(start)"} → ${to||"(slutt)"}`;
+      metaEl.textContent = `Periode: ${periodLabel} • Antall topics: ${topics.length}/${modalState.topics.length}`;
     }
 
     // ====== AGG: TOPIC DASHBOARD ======
@@ -922,7 +1076,7 @@
       return buildLine(ctx, labels, datasets);
     }
 
-    // ✅ PIE with % labels on slices + click-to-open list window
+    // PIE: % labels on slices + click opens modal (no popup)
     function buildPieWithCounts(ctx, counts){
       const labels=Object.keys(counts);
       const data=labels.map(l=>counts[l]);
@@ -937,7 +1091,7 @@
             if(!elements || !elements.length) return;
             const idx = elements[0].index;
             const tag = chart.data.labels[idx];
-            openTopicsWindowForTag(tag);
+            openTopicsModalForTag(tag);
           },
           plugins:{
             legend:{display:true},
@@ -1127,7 +1281,6 @@
       priorityLineChart=destroyIf(priorityLineChart);
       priorityLineChart=buildMultiLine(document.getElementById("priorityLineChart").getContext("2d"), byPriority.labels, byPriority.keys, byPriority.seriesMap);
 
-      // Pie shows % + click opens a new window list for that tag
       const tagCounts=aggregateTagCounts(topicsToUse);
       tagDisciplineChart=destroyIf(tagDisciplineChart);
       tagDisciplineChart=buildPieWithCounts(document.getElementById("tagDisciplineChart").getContext("2d"), tagCounts);
@@ -1147,7 +1300,7 @@
     }
 
     function renderAll(topicsFiltered){
-      currentFilteredTopics = topicsFiltered; // <— IMPORTANT for pie-click
+      currentFilteredTopics = topicsFiltered;
       renderVdcDashboard(topicsFiltered);
       renderTopicDashboard(topicsFiltered);
     }
@@ -1240,6 +1393,7 @@
       }
     }
 
+    // UI events
     document.getElementById("applyWeekBtn").addEventListener("click", ()=>{
       if(!allTopicsWithDates.length) return;
       const filtered=filterTopicsByWeekRange(allTopicsWithDates);
@@ -1252,7 +1406,30 @@
     });
 
     document.getElementById("refreshBtn").addEventListener("click", refreshData);
-    window.addEventListener("DOMContentLoaded", init);
+
+    // Modal events
+    document.addEventListener("DOMContentLoaded", ()=>{
+      init();
+
+      const closeBtn = document.getElementById("topicsModalCloseBtn");
+      const overlay = document.getElementById("topicsModalOverlay");
+      const searchEl = document.getElementById("topicsModalSearch");
+
+      closeBtn.addEventListener("click", closeTopicsModal);
+
+      overlay.addEventListener("click", (e)=>{
+        if(e.target === overlay) closeTopicsModal();
+      });
+
+      document.addEventListener("keydown", (e)=>{
+        if(e.key === "Escape") closeTopicsModal();
+      });
+
+      searchEl.addEventListener("input", ()=>{
+        modalState.search = searchEl.value || "";
+        renderTopicsModalTable();
+      });
+    });
   </script>
 </body>
 </html>
