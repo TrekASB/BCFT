@@ -4,400 +4,441 @@
   <meta charset="UTF-8" />
   <title>BCFTopicPulse</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-
-  <!-- Trimble Connect Workspace API -->
   <script src="https://components.connect.trimble.com/trimble-connect-workspace-api/index.js"></script>
-
-  <!-- Chart.js + DataLabels plugin (for % on pie slices) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
   <style>
-    :root{
-      --primary:#0069d9;
-      --border:#e5e7eb;
-      --card:#ffffff;
-      --bg:#f5f5f7;
-      --text:#111827;
-      --muted:#6b7280;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    :root {
+      --blue:        #0057B8;
+      --blue-light:  #EBF2FC;
+      --blue-mid:    #1a6ecf;
+      --accent:      #E8440A;
+      --green:       #1a7a4a;
+      --bg:          #F2F4F7;
+      --surface:     #FFFFFF;
+      --border:      #DDE1E9;
+      --text:        #0F1923;
+      --muted:       #64748B;
+      --muted-light: #94A3B8;
+      --radius-sm:   8px;
+      --radius:      12px;
+      --radius-lg:   18px;
+      --shadow:      0 1px 4px rgba(0,0,0,.08), 0 4px 16px rgba(0,0,0,.06);
+      --shadow-sm:   0 1px 3px rgba(0,0,0,.07);
+      font-family: 'DM Sans', system-ui, sans-serif;
     }
 
-    body{ margin:0; background:var(--bg); color:var(--text); min-height:100vh; display:flex; flex-direction:column; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body { background: var(--bg); color: var(--text); display: flex; flex-direction: column; min-height: 100vh; }
 
-    header{
-      display:flex; align-items:center; gap:14px;
-      padding:12px 14px; background:var(--card); border-bottom:1px solid var(--border);
+    /* ── HEADER ─────────────────────────────────────── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      height: 60px;
+      flex-shrink: 0;
+      position: sticky;
+      top: 0;
+      z-index: 100;
     }
-    .logoBox{
-      width:92px; height:92px; border-radius:12px; background:#fff; border:1px solid #eee;
-      display:flex; align-items:center; justify-content:center; overflow:hidden;
-      box-shadow:0 1px 3px rgba(15,23,42,.08); flex:0 0 auto;
+    .logo-box {
+      width: 36px; height: 36px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden; flex-shrink: 0;
     }
-    .logoBox img{ width:84px; height:84px; object-fit:contain; display:block; }
+    .logo-box img { width: 30px; height: 30px; object-fit: contain; }
+    .app-name { font-size: 16px; font-weight: 800; color: var(--blue); letter-spacing: -.3px; }
+    .app-sub  { font-size: 11px; color: var(--muted); margin-top: 1px; }
 
-    .titleBlock{ display:flex; flex-direction:column; gap:2px; }
-    .title{ font-weight:800; font-size:18px; color:var(--primary); line-height:1.1; }
-    .org{ font-weight:700; font-size:13px; opacity:.9; }
-    .dev{ font-size:11px; opacity:.75; font-style:italic; }
-
-    .headerRight{
-      margin-left:auto; display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:flex-end;
+    .header-right {
+      margin-left: auto;
+      display: flex; align-items: center; gap: 10px;
     }
-    #status{
-      font-size:12px; opacity:.85; white-space:nowrap; max-width:520px; overflow:hidden; text-overflow:ellipsis;
-    }
-
-    button{
-      padding:8px 10px; border-radius:8px; border:1px solid var(--primary);
-      background:var(--primary); color:#fff; font-size:13px; font-weight:600; cursor:pointer;
-      box-shadow:0 1px 2px rgba(0,0,0,.08);
-    }
-    button.secondary{ border:1px solid #777; background:#777; }
-    button:disabled{ opacity:.6; cursor:default; }
-
-    .loading-spinner{
-      display:inline-block; width:12px; height:12px; border-radius:50%;
-      border:2px solid #ccc; border-top-color:var(--primary);
-      animation:spin .8s linear infinite; margin-right:6px; vertical-align:-2px;
-    }
-    @keyframes spin{ to{ transform:rotate(360deg);} }
-
-    main{
-      flex:1; display:flex; flex-direction:column; padding:12px 14px 18px 14px; gap:12px; overflow:auto;
-    }
-    #error{ font-size:13px; color:#b00020; white-space:pre-wrap; }
-
-    .filterRow{
-      display:flex;
-      gap:10px;
-      align-items:flex-end;
-      flex-wrap:wrap;
-      padding:10px 12px;
-      background:var(--card);
-      border:1px solid var(--border);
-      border-radius:14px;
-    }
-    .field{ display:flex; flex-direction:column; gap:4px; }
-    .field label{ font-size:12px; color:var(--muted); font-weight:700; }
-    select{
-      padding:8px 10px;
-      border-radius:10px;
-      border:1px solid var(--border);
-      background:#fff;
-      font-size:13px;
-      min-width:220px;
-    }
-    .hint{ font-size:12px; color:var(--muted); margin-left:auto; }
-
-    .sectionTitle{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      padding:10px 12px;
-      background:var(--card);
-      border:1px solid var(--border);
-      border-radius:14px;
-      font-weight:900;
-    }
-    .sectionTitle small{ font-weight:700; color:var(--muted); }
-
-    .cards{
-      display:grid;
-      grid-template-columns:repeat(auto-fit, minmax(360px, 1fr));
-      gap:0;
-      border:1px solid var(--border);
-      border-radius:14px;
-      overflow:hidden;
-      background:var(--card);
-    }
-    .card{
-      background:var(--card);
-      padding:12px 12px 14px 12px;
-      display:flex;
-      flex-direction:column;
-      min-height:280px;
-      border-right:1px solid var(--border);
-      border-bottom:1px solid var(--border);
-    }
-    .card h2{ margin:0 0 8px 0; font-size:14px; font-weight:800; }
-    .divider{ height:1px; background:var(--border); margin:8px 0 10px 0; }
-    .small-text{ font-size:12px; color:var(--muted); margin-top:8px; }
-    canvas{ width:100% !important; height:280px !important; }
-
-    .tableWrap{
-      margin-top:10px;
-      border:1px solid var(--border);
-      border-radius:12px;
-      overflow:auto;
-      background:#fff;
-    }
-    table{
-      width:100%;
-      border-collapse:collapse;
-      min-width:560px;
-    }
-    th, td{
-      padding:8px 10px;
-      border-bottom:1px solid var(--border);
-      font-size:12px;
-      text-align:left;
-      white-space:nowrap;
-    }
-    th{
-      position:sticky;
-      top:0;
-      background:#fafafa;
-      z-index:1;
-      font-weight:900;
-    }
-    tr:last-child td{ border-bottom:0; }
-    .right{ text-align:right; }
-    .pill{
-      display:inline-block;
-      padding:2px 8px;
-      border-radius:999px;
-      border:1px solid var(--border);
-      background:#f8fafc;
-      font-weight:700;
+    #status {
+      font-size: 12px; color: var(--muted);
+      white-space: nowrap; max-width: 380px;
+      overflow: hidden; text-overflow: ellipsis;
     }
 
-    /* ===== Modal (topics list) ===== */
-    #topicsModalOverlay{
-      position:fixed;
-      inset:0;
-      background:rgba(0,0,0,.35);
-      z-index:9999;
-      display:none;
-      align-items:center;
-      justify-content:center;
-      padding:18px;
+    /* ── BUTTONS ────────────────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 7px 14px; border-radius: var(--radius-sm);
+      font-size: 13px; font-weight: 600;
+      cursor: pointer; border: none; transition: background .15s, opacity .15s;
     }
-    #topicsModal{
-      width:min(1200px, 98vw);
-      max-height:90vh;
-      background:#fff;
-      border:1px solid var(--border);
-      border-radius:16px;
-      overflow:hidden;
-      box-shadow:0 12px 40px rgba(0,0,0,.25);
-      display:flex;
-      flex-direction:column;
+    .btn-primary { background: var(--blue); color: #fff; }
+    .btn-primary:hover { background: var(--blue-mid); }
+    .btn-ghost  { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+    .btn-ghost:hover { background: var(--bg); }
+    .btn-danger { background: transparent; color: var(--accent); border: 1px solid #fbd5c8; font-size:12px; padding:5px 10px; }
+    .btn-danger:hover { background: #fff3ef; }
+    .btn:disabled { opacity: .45; cursor: default; }
+
+    /* ── TOOLBAR (filters) ──────────────────────────── */
+    .toolbar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 20px;
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+      min-height: 52px;
+      flex-shrink: 0;
     }
-    .modalHeader{
-      display:flex;
-      gap:12px;
-      align-items:flex-start;
-      justify-content:space-between;
-      padding:12px 12px;
-      background:var(--card);
-      border-bottom:1px solid var(--border);
+    .toolbar-label { font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: .5px; text-transform: uppercase; }
+    .filter-group { display: flex; align-items: center; gap: 8px; }
+    .field-label { font-size: 11px; font-weight: 600; color: var(--muted); }
+    select {
+      padding: 6px 10px; border-radius: var(--radius-sm);
+      border: 1px solid var(--border); background: var(--bg);
+      font-size: 13px; font-family: inherit; color: var(--text);
+      cursor: pointer;
     }
-    .modalTitle{ font-weight:900; font-size:14px; }
-    .modalMeta{ font-size:12px; color:var(--muted); margin-top:2px; }
-    .modalActions{ display:flex; gap:10px; align-items:center; }
-    #topicsModalSearch{
-      width:min(420px, 40vw);
-      padding:8px 10px;
-      border-radius:10px;
-      border:1px solid var(--border);
-      background:#fff;
-      font-size:13px;
+    select:focus { outline: 2px solid var(--blue); border-color: transparent; }
+
+    /* Tag filter badge */
+    .active-filter-bar {
+      display: none;
+      background: var(--blue-light);
+      border-bottom: 1px solid #c5d9f5;
+      padding: 8px 20px;
+      align-items: center; gap: 10px; flex-wrap: wrap;
+      flex-shrink: 0;
     }
-    .modalBody{
-      padding:12px;
-      overflow:auto;
+    .active-filter-bar.visible { display: flex; }
+    .filter-badge-label { font-size: 11px; font-weight: 700; color: var(--blue); letter-spacing: .5px; text-transform: uppercase; }
+    .pill {
+      display: inline-flex; align-items: center;
+      padding: 3px 10px; border-radius: 999px;
+      background: var(--blue); color: #fff;
+      font-size: 12px; font-weight: 600;
     }
-    th.sortable{ cursor:pointer; user-select:none; }
-    th.sortable:hover{ background:#f1f5f9; }
-    .modalBtns{ display:flex; gap:10px; align-items:center; }
+
+    /* ── TABS ───────────────────────────────────────── */
+    .tabs-bar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 20px;
+      display: flex; gap: 0;
+      flex-shrink: 0;
+    }
+    .tab-btn {
+      padding: 12px 18px; font-size: 13px; font-weight: 600;
+      color: var(--muted); background: none; border: none;
+      border-bottom: 3px solid transparent; cursor: pointer;
+      transition: color .15s, border-color .15s;
+      margin-bottom: -1px;
+    }
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.active { color: var(--blue); border-bottom-color: var(--blue); }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── MAIN ───────────────────────────────────────── */
+    main { flex: 1; padding: 20px; overflow-y: auto; }
+
+    #error {
+      margin-bottom: 12px; padding: 10px 14px;
+      background: #fff3f3; border: 1px solid #fcc; border-radius: var(--radius-sm);
+      font-size: 13px; color: #b00020; white-space: pre-wrap;
+      display: none;
+    }
+    #error:not(:empty) { display: block; }
+
+    /* ── CARD GRID ──────────────────────────────────── */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+      gap: 16px;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 18px;
+      box-shadow: var(--shadow-sm);
+      display: flex; flex-direction: column;
+    }
+    .card-header {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .card-title { font-size: 13px; font-weight: 700; color: var(--text); }
+    .card-hint { font-size: 11px; color: var(--muted-light); margin-top: 3px; }
+    .chart-wrap { position: relative; height: 260px; }
+    .chart-wrap canvas { width: 100% !important; height: 100% !important; }
+
+    /* ── SECTION DIVIDER ────────────────────────────── */
+    .section-label {
+      font-size: 11px; font-weight: 800; color: var(--muted);
+      letter-spacing: .6px; text-transform: uppercase;
+      margin-bottom: 12px; margin-top: 4px;
+    }
+
+    /* ── TABLE ──────────────────────────────────────── */
+    .table-wrap {
+      margin-top: 12px; border: 1px solid var(--border);
+      border-radius: var(--radius-sm); overflow: auto; background: var(--surface);
+    }
+    table { width: 100%; border-collapse: collapse; min-width: 480px; }
+    th, td {
+      padding: 8px 12px; border-bottom: 1px solid var(--border);
+      font-size: 12px; text-align: left; white-space: nowrap;
+    }
+    th {
+      position: sticky; top: 0; background: #FAFBFC;
+      font-weight: 800; z-index: 1; color: var(--muted);
+      font-size: 11px; text-transform: uppercase; letter-spacing: .4px;
+    }
+    tr:last-child td { border-bottom: 0; }
+    .right { text-align: right; }
+    .tag-pill {
+      display: inline-flex; align-items: center;
+      padding: 2px 8px; border-radius: 999px;
+      background: var(--blue-light); color: var(--blue);
+      font-size: 11px; font-weight: 700;
+    }
+    tr.tag-row { cursor: pointer; }
+    tr.tag-row:hover td { background: #F7F9FF; }
+    tr.tag-row.selected td { background: var(--blue-light); }
+
+    /* ── SPINNER ────────────────────────────────────── */
+    .spinner {
+      display: inline-block; width: 11px; height: 11px;
+      border-radius: 50%; border: 2px solid #ccc;
+      border-top-color: var(--blue);
+      animation: spin .7s linear infinite; margin-right: 5px; vertical-align: -1px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── MODAL ──────────────────────────────────────── */
+    #topicsModalOverlay {
+      position: fixed; inset: 0;
+      background: rgba(15,25,35,.45);
+      z-index: 9999; display: none;
+      align-items: center; justify-content: center;
+      padding: 20px;
+      backdrop-filter: blur(2px);
+    }
+    #topicsModalOverlay.open { display: flex; }
+    #topicsModal {
+      width: min(1100px, 96vw); max-height: 88vh;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0,0,0,.22);
+      display: flex; flex-direction: column;
+      animation: popIn .18s ease;
+    }
+    @keyframes popIn {
+      from { opacity: 0; transform: scale(.97) translateY(8px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 18px; border-bottom: 1px solid var(--border);
+      gap: 12px;
+    }
+    .modal-title { font-size: 14px; font-weight: 800; }
+    .modal-meta  { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .modal-actions { display: flex; align-items: center; gap: 8px; }
+    #topicsModalSearch {
+      padding: 7px 12px; border-radius: var(--radius-sm);
+      border: 1px solid var(--border); background: var(--bg);
+      font-size: 13px; font-family: inherit;
+      width: min(320px, 35vw);
+    }
+    #topicsModalSearch:focus { outline: 2px solid var(--blue); border-color: transparent; }
+    .modal-body { padding: 16px; overflow: auto; }
+    th.sortable { cursor: pointer; user-select: none; }
+    th.sortable:hover { background: #f1f5f9; color: var(--text); }
+    .sort-arrow { margin-left: 4px; opacity: .6; }
+
+    code { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); }
   </style>
 </head>
 
 <body>
+
+  <!-- ═══ HEADER ═══════════════════════════════════ -->
   <header>
-    <div class="logoBox">
-      <img src="norconsult-logo-black.png" alt="Norconsult logo"
-           onerror="this.style.display='none'; this.parentElement.textContent='Norconsult'; this.parentElement.style.fontWeight='900';">
+    <div class="logo-box">
+      <img src="norconsult-logo-black.png" alt="Norconsult"
+           onerror="this.style.display='none'; this.parentElement.textContent='N';">
     </div>
-
-    <div class="titleBlock">
-      <div class="title">BCFTopicPulse</div>
-      <div class="org">Norconsult Norge</div>
-      <div class="dev">Developed by Norconsult, (AI-assisted development). Kontaktperson: Edin.Dzakmic@norconsult.com</div>
+    <div>
+      <div class="app-name">BCFTopicPulse</div>
+      <div class="app-sub">Norconsult Norge</div>
     </div>
-
-    <div class="headerRight">
-      <div id="status"><span class="loading-spinner"></span>Kobler til Trimble Connect…</div>
-      <button id="refreshBtn">Oppdater data</button>
+    <div class="header-right">
+      <div id="status"><span class="spinner"></span>Kobler til Trimble Connect…</div>
+      <button class="btn btn-primary" id="refreshBtn">↻ Oppdater</button>
     </div>
   </header>
 
+  <!-- ═══ TOOLBAR ══════════════════════════════════ -->
+  <div class="toolbar">
+    <span class="toolbar-label">Periode</span>
+    <div class="filter-group">
+      <span class="field-label">Fra uke</span>
+      <select id="fromWeekSelect"><option value="">(alle)</option></select>
+    </div>
+    <div class="filter-group">
+      <span class="field-label">Til uke</span>
+      <select id="toWeekSelect"><option value="">(alle)</option></select>
+    </div>
+    <button class="btn btn-ghost" id="applyWeekBtn">Bruk filter</button>
+  </div>
+
+  <!-- ═══ ACTIVE TAG FILTER ════════════════════════ -->
+  <div class="active-filter-bar" id="tagFilterRow">
+    <span class="filter-badge-label">Fagfilter aktiv</span>
+    <span class="pill" id="activeTagPill"></span>
+    <button class="btn btn-danger" id="clearTagBtn">✕ Fjern filter</button>
+  </div>
+
+  <!-- ═══ TABS ══════════════════════════════════════ -->
+  <div class="tabs-bar">
+    <button class="tab-btn active" data-tab="topic">Topic dashboard</button>
+    <button class="tab-btn" data-tab="vdc">VDC dashboard</button>
+  </div>
+
+  <!-- ═══ MAIN ══════════════════════════════════════ -->
   <main>
     <div id="error"></div>
 
-    <div class="filterRow">
-      <div class="field">
-        <label for="fromWeekSelect">Fra uke</label>
-        <select id="fromWeekSelect"><option value="">(ingen)</option></select>
-      </div>
+    <!-- ── TOPIC TAB ── -->
+    <div class="tab-panel active" id="tab-topic">
+      <div class="section-label">Fag &amp; Statistikk</div>
+      <div class="grid">
 
-      <div class="field">
-        <label for="toWeekSelect">Til uke</label>
-        <select id="toWeekSelect"><option value="">(ingen)</option></select>
-      </div>
-
-      <button class="secondary" id="applyWeekBtn">Bruk ukeintervall</button>
-
-      <div class="hint">Hvis “Fra” og “Til” er tomme → alle uker.</div>
-    </div>
-
-    <!-- ===== TOPIC DASHBOARD (PRIORITERT REKKEFØLGE) ===== -->
-    <div class="sectionTitle">
-      Topic dashboard
-      <small>Fag • Trend • Cycle time • Øvrige indikatorer</small>
-    </div>
-
-    <div class="cards">
-      <!-- 1) Fag (Tag): antall + status -->
-      <div class="card">
-        <h2>Fag (Tag): antall saker + statusoversikt</h2>
-        <div class="divider"></div>
-        <canvas id="tagDisciplineChart"></canvas>
-        <div class="tableWrap" id="tagStatusTableWrap"></div>
-        <div class="small-text">
-          Klikk på et kakestykke for å åpne en filtrert topics-liste (i samme extension) – sortert etter dato.
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Fag (Tag): fordeling</div>
+              <div class="card-hint">Klikk på et segment for å se topics</div>
+            </div>
+          </div>
+          <div class="chart-wrap"><canvas id="tagDisciplineChart"></canvas></div>
         </div>
-      </div>
 
-      <!-- 2) Status trend -->
-      <div class="card">
-        <h2>Topics per Status over tid (linje)</h2>
-        <div class="divider"></div>
-        <canvas id="statusLineChart"></canvas>
-      </div>
+        <div class="card" style="grid-column: span 2 / auto;">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Fag (Tag): antall saker per status</div>
+              <div class="card-hint">Klikk på en rad for å filtrere alle grafer på faget</div>
+            </div>
+          </div>
+          <div class="table-wrap" id="tagStatusTableWrap"></div>
+        </div>
 
-      <!-- 3) Type trend -->
-      <div class="card">
-        <h2>Topics per Type over tid (linje)</h2>
-        <div class="divider"></div>
-        <canvas id="typeLineChart"></canvas>
-      </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Topics per Status over tid</div></div>
+          <div class="chart-wrap"><canvas id="statusLineChart"></canvas></div>
+        </div>
 
-      <!-- 4) Priority trend -->
-      <div class="card">
-        <h2>Topics per Priority over tid (linje)</h2>
-        <div class="divider"></div>
-        <canvas id="priorityLineChart"></canvas>
-      </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Topics per Type over tid</div></div>
+          <div class="chart-wrap"><canvas id="typeLineChart"></canvas></div>
+        </div>
 
-      <!-- 5) Avg cycle time -->
-      <div class="card">
-        <h2>Gjennomsnittlig tid fra opprettet → lukket</h2>
-        <div class="divider"></div>
-        <canvas id="avgCycleTimeChart"></canvas>
-      </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Topics per Priority over tid</div></div>
+          <div class="chart-wrap"><canvas id="priorityLineChart"></canvas></div>
+        </div>
 
-      <!-- Øvrige (best grouping) -->
-      <div class="card">
-        <h2>Opprettede Topics over tid</h2>
-        <div class="divider"></div>
-        <canvas id="createdOverTimeChart"></canvas>
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Gjennomsnittlig tid: opprettet → lukket</div>
+              <div class="card-hint">Stiplet linje = globalt snitt</div>
+            </div>
+          </div>
+          <div class="chart-wrap"><canvas id="avgCycleTimeChart"></canvas></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><div class="card-title">Opprettede Topics over tid</div></div>
+          <div class="chart-wrap"><canvas id="createdOverTimeChart"></canvas></div>
+        </div>
+
       </div>
     </div>
 
-    <!-- ===== VDC DASHBOARD (GROUPED) ===== -->
-    <div class="sectionTitle">
-      VDC dashboard
-      <small>Flow • Backlog/WIP • Aging • Cycle time • CFD</small>
-    </div>
+    <!-- ── VDC TAB ── -->
+    <div class="tab-panel" id="tab-vdc">
+      <div class="section-label">VDC Metrics</div>
+      <div class="grid">
 
-    <div class="cards">
-      <div class="card">
-        <h2>Created vs Closed (per uke)</h2>
-        <div class="divider"></div>
-        <canvas id="createdClosedChart"></canvas>
-        <div class="small-text">Closed-uke estimeres med <code>modified_date</code> når status er lukket.</div>
-      </div>
-
-      <div class="card">
-        <h2>Backlog (kumulativ)</h2>
-        <div class="divider"></div>
-        <canvas id="backlogChart"></canvas>
-        <div class="small-text">Kumulativt (Created − Closed).</div>
-      </div>
-
-      <div class="card">
-        <h2>WIP over tid</h2>
-        <div class="divider"></div>
-        <canvas id="wipChart"></canvas>
-        <div class="small-text">Åpne saker ved slutten av hver uke.</div>
-      </div>
-
-      <div class="card">
-        <h2>Aging (åpne saker)</h2>
-        <div class="divider"></div>
-        <canvas id="agingChart"></canvas>
-        <div class="small-text">Aldersfordeling for åpne saker ved periodens slutt.</div>
-      </div>
-
-      <div class="card">
-        <h2>Alder per fag (Tag) – åpne saker</h2>
-        <div class="divider"></div>
-        <canvas id="agingByTagChart"></canvas>
-        <div class="small-text">
-          Stacked buckets per fag (Tag) ved periodens slutt: 0–7, 8–14, 15–30, 31–60, 60+ dager.
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Created vs Closed (per uke)</div>
+              <div class="card-hint">Closed estimeres med <code>modified_date</code></div>
+            </div>
+          </div>
+          <div class="chart-wrap"><canvas id="createdClosedChart"></canvas></div>
         </div>
-      </div>
 
-      <div class="card">
-        <h2>Cycle time (Median + P80)</h2>
-        <div class="divider"></div>
-        <canvas id="cycleTimeChart"></canvas>
-        <div class="small-text">Basert på lukkede saker: <code>modified_date - creation_date</code>.</div>
-      </div>
-
-      <div class="card">
-        <h2>Due date: On-time vs Late</h2>
-        <div class="divider"></div>
-        <canvas id="dueDateChart"></canvas>
-        <div class="small-text" id="dueDateNote">Vises kun hvis <code>due_date</code> finnes.</div>
-      </div>
-
-      <div class="card">
-        <h2>Cumulative Flow Diagram (CFD)</h2>
-        <div class="divider"></div>
-        <canvas id="cfdChart"></canvas>
-        <div class="small-text">
-          OBS: Uten status-historikk er dette en <b>approksimasjon</b>. Vi estimerer “Closed” fra <code>modified_date</code>,
-          og resterende saker regnes som åpne (fordelt på nåværende status).
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Backlog (kumulativ)</div>
+              <div class="card-hint">Created − Closed akkumulert</div>
+            </div>
+          </div>
+          <div class="chart-wrap"><canvas id="backlogChart"></canvas></div>
         </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">WIP over tid</div>
+              <div class="card-hint">Åpne saker ved slutten av hver uke</div>
+            </div>
+          </div>
+          <div class="chart-wrap"><canvas id="wipChart"></canvas></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Due date: On-time vs Late</div>
+              <div class="card-hint" id="dueDateNote">Vises kun hvis <code>due_date</code> finnes</div>
+            </div>
+          </div>
+          <div class="chart-wrap"><canvas id="dueDateChart"></canvas></div>
+        </div>
+
       </div>
     </div>
   </main>
 
-  <!-- ===== Topics modal (åpnes ved klikk på kakestykke) ===== -->
+  <!-- ═══ MODAL ════════════════════════════════════ -->
   <div id="topicsModalOverlay">
     <div id="topicsModal">
-      <div class="modalHeader">
+      <div class="modal-header">
         <div>
-          <div class="modalTitle">BCF Topics – <span id="topicsModalTag" class="pill"></span></div>
-          <div class="modalMeta" id="topicsModalMeta"></div>
+          <div class="modal-title">BCF Topics — <span id="topicsModalTag" class="pill" style="font-size:12px;"></span></div>
+          <div class="modal-meta" id="topicsModalMeta"></div>
         </div>
-
-        <div class="modalActions">
-          <input id="topicsModalSearch" type="search" placeholder="Søk i tittel / status / type / priority / id…" />
-          <div class="modalBtns">
-            <button class="secondary" id="topicsModalCsvBtn">CSV eksport</button>
-            <button class="secondary" id="topicsModalCloseBtn">Lukk</button>
-          </div>
+        <div class="modal-actions">
+          <input id="topicsModalSearch" type="search" placeholder="Søk i tittel, status, type, priority, ID…" />
+          <button class="btn btn-ghost" id="topicsModalCsvBtn">↓ CSV</button>
+          <button class="btn btn-ghost" id="topicsModalCloseBtn">Lukk</button>
         </div>
       </div>
-
-      <div class="modalBody">
-        <div class="tableWrap" id="topicsModalTableWrap"></div>
-        <div class="small-text" style="margin-top:10px;">
-          Klikk på kolonneoverskrift for å sortere. Default: <b>Opprettet (nyeste først)</b>.
+      <div class="modal-body">
+        <div class="table-wrap" id="topicsModalTableWrap"></div>
+        <div style="font-size:11px; color:var(--muted); margin-top:10px;">
+          Klikk kolonneoverskrift for å sortere. Standard: Opprettet (nyeste først).
         </div>
       </div>
     </div>
@@ -406,670 +447,267 @@
   <script>
     if (window.ChartDataLabels) Chart.register(ChartDataLabels);
 
-    const TOPICS_API_BASE = "https://open21.connect.trimble.com";
-    const CLOSED_STATUSES = new Set(["Closed", "Done", "Resolved", "Approved"]);
-    const UNKNOWN_LABEL = "Ikke satt";
+    // ── Palette ──────────────────────────────────────
+    Chart.defaults.font.family = "'DM Sans', system-ui, sans-serif";
+    Chart.defaults.font.size = 11;
+    Chart.defaults.color = "#64748B";
+    Chart.defaults.borderColor = "#DDE1E9";
 
-    const AGING_BUCKETS = [
-      { key: "0-7",  min: 0,  max: 7 },
-      { key: "8-14", min: 8,  max: 14 },
-      { key: "15-30",min: 15, max: 30 },
-      { key: "31-60",min: 31, max: 60 },
-      { key: "60+",  min: 61, max: Infinity }
+    const PALETTE = [
+      "#0057B8","#E8440A","#1a7a4a","#F5B400","#7C3AED",
+      "#0891b2","#be185d","#92400e","#1d4ed8","#4d7c0f"
     ];
+
+    // ── Constants ────────────────────────────────────
+    const TOPICS_API_BASE = "https://open21.connect.trimble.com";
+    const CLOSED_STATUSES = new Set(["Closed","Done","Resolved","Approved"]);
+    const UNKNOWN_LABEL   = "Ikke satt";
 
     let API=null, accessToken=null, currentProjectId=null;
     let allTopics=[], allTopicsWithDates=[];
-    let currentFilteredTopics=[];
+    let currentWeekFilteredTopics=[], currentFilteredTopics=[];
+    let selectedTag=null;
 
-    let createdClosedChart=null, backlogChart=null, wipChart=null, agingChart=null, cycleTimeChart=null, dueDateChart=null;
-    let cfdChart=null, agingByTagChart=null;
+    let charts = {};
 
-    let createdOverTimeChart=null, statusLineChart=null, typeLineChart=null, priorityLineChart=null, tagDisciplineChart=null, avgCycleTimeChart=null;
+    let modalState = { tag:null, topics:[], sortKey:"created", sortDir:"desc", search:"" };
 
-    let modalState = {
-      tag: null,
-      topics: [],
-      sortKey: "created",
-      sortDir: "desc",
-      search: ""
-    };
+    // ── Helpers ──────────────────────────────────────
+    function escHtml(s){ return String(s??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;"); }
+    function safeStr(v){ return (v===null||v===undefined)?"":String(v).trim(); }
+    function parseDateMaybe(v){ const s=safeStr(v); if(!s) return null; const d=new Date(s); return Number.isNaN(d.getTime())?null:d; }
+    function fmtDate(d){ if(!d) return ""; return [String(d.getDate()).padStart(2,"0"), String(d.getMonth()+1).padStart(2,"0"), d.getFullYear()].join("."); }
+    function pad2(n){ return String(n).padStart(2,"0"); }
+    function avg(nums){ const v=nums.filter(Number.isFinite); if(!v.length) return null; return v.reduce((a,b)=>a+b,0)/v.length; }
 
-    function escapeHtml(str){return String(str??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");}
-    function setStatus(message,isLoading=false){
-      const el=document.getElementById("status");
-      el.innerHTML=isLoading?`<span class="loading-spinner"></span>${escapeHtml(message)}`:escapeHtml(message);
+    function setStatus(msg, loading=false){
+      document.getElementById("status").innerHTML = loading
+        ? `<span class="spinner"></span>${escHtml(msg)}`
+        : escHtml(msg);
     }
-    function setError(message){document.getElementById("error").textContent=message||"";}
-    function setBusy(isBusy){document.getElementById("refreshBtn").disabled=isBusy;}
-
-    function safeStr(v){return (v===null||v===undefined)?"":String(v).trim();}
-    function parseDateMaybe(v){const s=safeStr(v); if(!s) return null; const d=new Date(s); return Number.isNaN(d.getTime())?null:d;}
-    function fmtDate(d){
-      if(!d) return "";
-      const dd = String(d.getDate()).padStart(2,"0");
-      const mm = String(d.getMonth()+1).padStart(2,"0");
-      const yy = d.getFullYear();
-      return `${dd}.${mm}.${yy}`;
-    }
-    function pad2(n){return String(n).padStart(2,"0");}
+    function setError(msg){ const el=document.getElementById("error"); el.textContent=msg||""; }
+    function setBusy(b){ document.getElementById("refreshBtn").disabled=b; }
 
     function getISOWeekKey(date){
       const d=new Date(Date.UTC(date.getFullYear(),date.getMonth(),date.getDate()));
-      const dayNum=d.getUTCDay()||7;
-      d.setUTCDate(d.getUTCDate()+4-dayNum);
-      const yearStart=new Date(Date.UTC(d.getUTCFullYear(),0,1));
-      const weekNo=Math.ceil((((d-yearStart)/86400000)+1)/7);
-      return `${d.getUTCFullYear()}-W${pad2(weekNo)}`;
+      const dn=d.getUTCDay()||7; d.setUTCDate(d.getUTCDate()+4-dn);
+      const ys=new Date(Date.UTC(d.getUTCFullYear(),0,1));
+      const wn=Math.ceil((((d-ys)/86400000)+1)/7);
+      return `${d.getUTCFullYear()}-W${pad2(wn)}`;
     }
-    function bucketKey(date){return getISOWeekKey(date);}
-    function compareWeekKeys(a,b){return a.localeCompare(b);}
-    function uniqueSorted(arr){return [...new Set(arr)].sort((a,b)=>a.localeCompare(b));}
+    function bucketKey(date){ return getISOWeekKey(date); }
+    function uniqueSorted(arr){ return [...new Set(arr)].sort((a,b)=>a.localeCompare(b)); }
 
-    function isoWeekToDateRange(weekKey){
-      const [yPart,wPart]=weekKey.split("-W");
-      const year=Number(yPart), week=Number(wPart);
+    function isoWeekToDateRange(wk){
+      const [yp,wp]=wk.split("-W");
+      const year=Number(yp), week=Number(wp);
       const jan4=new Date(Date.UTC(year,0,4));
-      const dayNum=jan4.getUTCDay()||7;
-      const mondayWeek1=new Date(jan4);
-      mondayWeek1.setUTCDate(jan4.getUTCDate()-(dayNum-1));
-      const start=new Date(mondayWeek1);
-      start.setUTCDate(mondayWeek1.getUTCDate()+(week-1)*7);
-      start.setUTCHours(0,0,0,0);
-      const end=new Date(start);
-      end.setUTCDate(start.getUTCDate()+6);
-      end.setUTCHours(23,59,59,999);
+      const dn=jan4.getUTCDay()||7;
+      const mon=new Date(jan4); mon.setUTCDate(jan4.getUTCDate()-(dn-1));
+      const start=new Date(mon); start.setUTCDate(mon.getUTCDate()+(week-1)*7); start.setUTCHours(0,0,0,0);
+      const end=new Date(start); end.setUTCDate(start.getUTCDate()+6); end.setUTCHours(23,59,59,999);
       return {start,end};
     }
 
-    function avg(nums){const v=nums.filter(Number.isFinite); if(!v.length) return null; return v.reduce((a,b)=>a+b,0)/v.length;}
-    function median(nums){
-      const v=nums.filter(Number.isFinite).sort((a,b)=>a-b);
-      if(!v.length) return null;
-      const mid=Math.floor(v.length/2);
-      return v.length%2?v[mid]:(v[mid-1]+v[mid])/2;
-    }
-    function percentile(nums,p){
-      const v=nums.filter(Number.isFinite).sort((a,b)=>a-b);
-      if(!v.length) return null;
-      const idx=(v.length-1)*p;
-      const lo=Math.floor(idx), hi=Math.ceil(idx);
-      if(lo===hi) return v[lo];
-      return v[lo]+(v[hi]-v[lo])*(idx-lo);
-    }
-
-    function getClosedDateIfClosed(topic){
+    function getClosedDate(topic){
       const st=safeStr(topic.topic_status||topic.status);
       if(!CLOSED_STATUSES.has(st)) return null;
       return parseDateMaybe(topic.modified_date);
     }
 
-    function populateWeekRangeSelectors(topics){
+    function extractTags(topic){
+      const c=[];
+      if(Array.isArray(topic.labels)) c.push(...topic.labels);
+      if(Array.isArray(topic.tags))   c.push(...topic.tags);
+      const s=safeStr(topic.label||topic.tag||topic.discipline);
+      if(s) c.push(s);
+      return [...new Set(c.map(safeStr).filter(Boolean))];
+    }
+    function getStatus(t){ return safeStr(t.topic_status||t.status)||UNKNOWN_LABEL; }
+    function getTitle(t) { return safeStr(t.title)||safeStr(t.topic_title)||"(uten tittel)"; }
+    function getId(t)    { return safeStr(t.guid||t.topic_guid||t.id||t.topic_id); }
+
+    // ── Week selectors ───────────────────────────────
+    function populateWeekSelectors(topics){
       const weeks=[];
       for(const t of topics){
         const cd=parseDateMaybe(t.creation_date); if(cd) weeks.push(bucketKey(cd));
-        const closed=getClosedDateIfClosed(t); if(closed) weeks.push(bucketKey(closed));
+        const cl=getClosedDate(t); if(cl) weeks.push(bucketKey(cl));
       }
-      const uniqueWeeks=uniqueSorted(weeks);
-
-      const fromSel=document.getElementById("fromWeekSelect");
-      const toSel=document.getElementById("toWeekSelect");
-      const prevFrom=fromSel.value, prevTo=toSel.value;
-
-      fromSel.innerHTML=`<option value="">(ingen)</option>`+uniqueWeeks.map(w=>`<option value="${escapeHtml(w)}">${escapeHtml(w)}</option>`).join("");
-      toSel.innerHTML=`<option value="">(ingen)</option>`+uniqueWeeks.map(w=>`<option value="${escapeHtml(w)}">${escapeHtml(w)}</option>`).join("");
-
-      if(prevFrom && uniqueWeeks.includes(prevFrom)) fromSel.value=prevFrom;
-      if(prevTo && uniqueWeeks.includes(prevTo)) toSel.value=prevTo;
+      const uw=uniqueSorted(weeks);
+      const from=document.getElementById("fromWeekSelect");
+      const to=document.getElementById("toWeekSelect");
+      const pf=from.value, pt=to.value;
+      const opts=`<option value="">(alle)</option>`+uw.map(w=>`<option value="${escHtml(w)}">${escHtml(w)}</option>`).join("");
+      from.innerHTML=opts; to.innerHTML=opts;
+      if(pf && uw.includes(pf)) from.value=pf;
+      if(pt && uw.includes(pt)) to.value=pt;
     }
 
-    function filterTopicsByWeekRange(topics){
+    function filterByWeek(topics){
       const from=document.getElementById("fromWeekSelect").value;
       const to=document.getElementById("toWeekSelect").value;
       if(!from && !to) return topics;
-
       return topics.filter(t=>{
-        const cd=parseDateMaybe(t.creation_date);
-        if(!cd) return false;
+        const cd=parseDateMaybe(t.creation_date); if(!cd) return false;
         const wk=bucketKey(cd);
-        if(from && compareWeekKeys(wk,from)<0) return false;
-        if(to && compareWeekKeys(wk,to)>0) return false;
+        if(from && wk.localeCompare(from)<0) return false;
+        if(to   && wk.localeCompare(to)>0)   return false;
         return true;
       });
     }
 
-    function getPeriodEndDateFromSelection(weekLabelsSorted){
-      const to=document.getElementById("toWeekSelect").value;
-      if(to) return isoWeekToDateRange(to).end;
-      const last=weekLabelsSorted.length?weekLabelsSorted[weekLabelsSorted.length-1]:null;
-      return last?isoWeekToDateRange(last).end:new Date();
-    }
-
-    function extractTags(topic){
-      const candidates=[];
-      if(Array.isArray(topic.labels)) candidates.push(...topic.labels);
-      if(Array.isArray(topic.tags)) candidates.push(...topic.tags);
-      const single=safeStr(topic.label||topic.tag||topic.discipline);
-      if(single) candidates.push(single);
-      return [...new Set(candidates.map(safeStr).filter(Boolean))];
-    }
-    function getTopicStatus(topic){return safeStr(topic.topic_status||topic.status)||UNKNOWN_LABEL;}
-
-    // ===== Modal (NO POPUPS) =====
-    function openTopicsModalForTag(tag){
-      modalState.tag = tag;
-
-      const topics = (currentFilteredTopics || []).filter(t=>{
-        const tags = extractTags(t);
-        if(tag === UNKNOWN_LABEL) return tags.length === 0;
-        return tags.includes(tag);
+    function applyTagFilter(topics){
+      if(!selectedTag) return topics;
+      return topics.filter(t=>{
+        const tags=extractTags(t);
+        return selectedTag===UNKNOWN_LABEL ? tags.length===0 : tags.includes(selectedTag);
       });
-
-      modalState.topics = topics.slice();
-      modalState.sortKey = "created";
-      modalState.sortDir = "desc";
-      modalState.search = "";
-
-      document.getElementById("topicsModalTag").textContent = tag;
-
-      const from=document.getElementById("fromWeekSelect").value;
-      const to=document.getElementById("toWeekSelect").value;
-      const periodLabel = (!from && !to) ? "Alle uker" : `${from||"(start)"} → ${to||"(slutt)"}`;
-      document.getElementById("topicsModalMeta").textContent = `Periode: ${periodLabel} • Antall topics: ${topics.length}`;
-
-      const overlay = document.getElementById("topicsModalOverlay");
-      overlay.style.display = "flex";
-
-      const searchEl = document.getElementById("topicsModalSearch");
-      searchEl.value = "";
-      searchEl.focus();
-
-      renderTopicsModalTable();
     }
 
-    function closeTopicsModal(){
-      document.getElementById("topicsModalOverlay").style.display = "none";
+    function updateTagFilterUi(){
+      const row=document.getElementById("tagFilterRow");
+      document.getElementById("activeTagPill").textContent=selectedTag||"";
+      row.classList.toggle("visible", !!selectedTag);
     }
 
-    function getTopicTitle(t){
-      return safeStr(t.title) || safeStr(t.topic_title) || "(uten tittel)";
-    }
-    function getTopicId(t){
-      return safeStr(t.guid || t.topic_guid || t.id || t.topic_id);
-    }
-
-    function applyModalFilterAndSort(){
-      const q = (modalState.search || "").toLowerCase();
-
-      let list = modalState.topics.filter(t=>{
-        if(!q) return true;
-        const created = fmtDate(parseDateMaybe(t.creation_date));
-        const status = safeStr(t.topic_status||t.status) || UNKNOWN_LABEL;
-        const type = safeStr(t.topic_type||t.type) || UNKNOWN_LABEL;
-        const priority = safeStr(t.priority) || UNKNOWN_LABEL;
-        const title = getTopicTitle(t);
-        const id = getTopicId(t);
-
-        const hay = `${created} ${status} ${type} ${priority} ${title} ${id}`.toLowerCase();
-        return hay.includes(q);
+    // ── TABS ─────────────────────────────────────────
+    document.querySelectorAll(".tab-btn").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        const tab=btn.dataset.tab;
+        document.querySelectorAll(".tab-btn").forEach(b=>b.classList.toggle("active", b===btn));
+        document.querySelectorAll(".tab-panel").forEach(p=>p.classList.toggle("active", p.id===`tab-${tab}`));
       });
+    });
 
-      const dir = modalState.sortDir === "asc" ? 1 : -1;
-
-      list.sort((a,b)=>{
-        const da = parseDateMaybe(a.creation_date);
-        const db = parseDateMaybe(b.creation_date);
-
-        const createdA = da ? da.getTime() : 0;
-        const createdB = db ? db.getTime() : 0;
-
-        const statusA = (safeStr(a.topic_status||a.status)||UNKNOWN_LABEL).toLowerCase();
-        const statusB = (safeStr(b.topic_status||b.status)||UNKNOWN_LABEL).toLowerCase();
-
-        const typeA = (safeStr(a.topic_type||a.type)||UNKNOWN_LABEL).toLowerCase();
-        const typeB = (safeStr(b.topic_type||b.type)||UNKNOWN_LABEL).toLowerCase();
-
-        const prA = (safeStr(a.priority)||UNKNOWN_LABEL).toLowerCase();
-        const prB = (safeStr(b.priority)||UNKNOWN_LABEL).toLowerCase();
-
-        const titleA = getTopicTitle(a).toLowerCase();
-        const titleB = getTopicTitle(b).toLowerCase();
-
-        const idA = getTopicId(a).toLowerCase();
-        const idB = getTopicId(b).toLowerCase();
-
-        let cmp = 0;
-        switch(modalState.sortKey){
-          case "created": cmp = createdA - createdB; break;
-          case "status": cmp = statusA.localeCompare(statusB); break;
-          case "type": cmp = typeA.localeCompare(typeB); break;
-          case "priority": cmp = prA.localeCompare(prB); break;
-          case "title": cmp = titleA.localeCompare(titleB); break;
-          case "id": cmp = idA.localeCompare(idB); break;
-          default: cmp = createdA - createdB;
-        }
-        return cmp * dir;
-      });
-
-      return list;
-    }
-
-    function renderTopicsModalTable(){
-      const wrap = document.getElementById("topicsModalTableWrap");
-      const topics = applyModalFilterAndSort();
-
-      const mkSortArrow = (key) => {
-        if(modalState.sortKey !== key) return "";
-        return modalState.sortDir === "asc" ? " ▲" : " ▼";
-      };
-
-      const rows = topics.map(t=>{
-        const created = parseDateMaybe(t.creation_date);
-        const status = safeStr(t.topic_status||t.status) || UNKNOWN_LABEL;
-        const type = safeStr(t.topic_type||t.type) || UNKNOWN_LABEL;
-        const priority = safeStr(t.priority) || UNKNOWN_LABEL;
-        const title = getTopicTitle(t);
-        const id = getTopicId(t);
-
-        return `
-          <tr>
-            <td>${escapeHtml(fmtDate(created))}</td>
-            <td>${escapeHtml(status)}</td>
-            <td>${escapeHtml(type)}</td>
-            <td>${escapeHtml(priority)}</td>
-            <td title="${escapeHtml(title)}" style="white-space:normal;">${escapeHtml(title)}</td>
-            <td><code>${escapeHtml(id)}</code></td>
-          </tr>
-        `;
-      }).join("");
-
-      wrap.innerHTML = `
-        <table>
-          <thead>
-            <tr>
-              <th class="sortable" data-sort="created">Opprettet${mkSortArrow("created")}</th>
-              <th class="sortable" data-sort="status">Status${mkSortArrow("status")}</th>
-              <th class="sortable" data-sort="type">Type${mkSortArrow("type")}</th>
-              <th class="sortable" data-sort="priority">Priority${mkSortArrow("priority")}</th>
-              <th class="sortable" data-sort="title">Tittel${mkSortArrow("title")}</th>
-              <th class="sortable" data-sort="id">GUID/ID${mkSortArrow("id")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rows || `<tr><td colspan="6">Ingen topics funnet for valgt fag / filter.</td></tr>`}
-          </tbody>
-        </table>
-      `;
-
-      wrap.querySelectorAll("th.sortable").forEach(th=>{
-        th.addEventListener("click", ()=>{
-          const key = th.getAttribute("data-sort");
-          if(modalState.sortKey === key){
-            modalState.sortDir = (modalState.sortDir === "asc") ? "desc" : "asc";
-          } else {
-            modalState.sortKey = key;
-            modalState.sortDir = (key === "created") ? "desc" : "asc";
-          }
-          renderTopicsModalTable();
-        });
-      });
-
-      const metaEl = document.getElementById("topicsModalMeta");
-      const from=document.getElementById("fromWeekSelect").value;
-      const to=document.getElementById("toWeekSelect").value;
-      const periodLabel = (!from && !to) ? "Alle uker" : `${from||"(start)"} → ${to||"(slutt)"}`;
-      metaEl.textContent = `Periode: ${periodLabel} • Antall topics: ${topics.length}/${modalState.topics.length}`;
-    }
-
-    // ===== CSV EXPORT (current modal view: search + sort applied) =====
-    function csvEscape(value){
-      const s = safeStr(value);
-      if (s.includes('"') || s.includes(",") || s.includes("\n") || s.includes("\r")) {
-        return `"${s.replaceAll('"','""')}"`;
-      }
-      return s;
-    }
-    function buildModalCsvRows(){
-      const list = applyModalFilterAndSort();
-      const rows = [];
-      rows.push(["Tag", "Opprettet", "Status", "Type", "Priority", "Tittel", "GUID/ID"].map(csvEscape).join(","));
-      for(const t of list){
-        const created = fmtDate(parseDateMaybe(t.creation_date));
-        const status = safeStr(t.topic_status||t.status) || UNKNOWN_LABEL;
-        const type = safeStr(t.topic_type||t.type) || UNKNOWN_LABEL;
-        const priority = safeStr(t.priority) || UNKNOWN_LABEL;
-        const title = getTopicTitle(t);
-        const id = getTopicId(t);
-        rows.push([modalState.tag||"", created, status, type, priority, title, id].map(csvEscape).join(","));
-      }
-      return rows.join("\r\n");
-    }
-    function downloadCsv(filename, csvText){
-      const blob = new Blob([csvText], { type: "text/csv;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    }
-    function exportModalToCsv(){
-      const csv = buildModalCsvRows();
-      const from=document.getElementById("fromWeekSelect").value;
-      const to=document.getElementById("toWeekSelect").value;
-      const range = (!from && !to) ? "alle-uker" : `${from||"start"}_to_${to||"slutt"}`;
-      const tag = (modalState.tag || "tag").replaceAll(/[^a-zA-Z0-9_-]/g, "_");
-      const fileName = `BCF_Topics_${tag}_${range}.csv`;
-      downloadCsv(fileName, csv);
-    }
-
-    // ====== AGG (Topic dashboard) ======
-    function aggregateCreatedTotal(topics){
-      const buckets=[]; const bucketMap=new Map();
+    // ── Aggregations ─────────────────────────────────
+    function aggCreatedTotal(topics){
+      const bm=new Map();
       for(const t of topics){
         const cd=parseDateMaybe(t.creation_date); if(!cd) continue;
-        const b=bucketKey(cd); buckets.push(b);
-        bucketMap.set(b,(bucketMap.get(b)||0)+1);
+        const b=bucketKey(cd); bm.set(b,(bm.get(b)||0)+1);
       }
-      const labels=uniqueSorted(buckets);
-      const totals=labels.map(b=>bucketMap.get(b)||0);
-      return {labels,totals};
+      const labels=uniqueSorted([...bm.keys()]);
+      return {labels, totals:labels.map(b=>bm.get(b)||0)};
     }
-    function aggregateCreatedByCategory(topics,getCategory){
-      const buckets=[]; const bucketMap=new Map();
+
+    function aggByCategory(topics, getCat){
+      const bm=new Map();
       for(const t of topics){
         const cd=parseDateMaybe(t.creation_date); if(!cd) continue;
-        const b=bucketKey(cd); buckets.push(b);
-        const cat=safeStr(getCategory(t))||UNKNOWN_LABEL;
-        if(!bucketMap.has(b)) bucketMap.set(b,{});
-        bucketMap.get(b)[cat]=(bucketMap.get(b)[cat]||0)+1;
+        const b=bucketKey(cd); const cat=safeStr(getCat(t))||UNKNOWN_LABEL;
+        if(!bm.has(b)) bm.set(b,{});
+        bm.get(b)[cat]=(bm.get(b)[cat]||0)+1;
       }
-      const labels=uniqueSorted(buckets);
-      const keySet=new Set();
-      for(const b of labels){
-        const obj=bucketMap.get(b)||{};
-        Object.keys(obj).forEach(k=>keySet.add(k));
-      }
-      const keys=[...keySet].sort((a,b)=>a.localeCompare(b));
-      const seriesMap={};
-      for(const k of keys) seriesMap[k]=labels.map(b=>bucketMap.get(b)?.[k]||0);
-      return {labels,keys,seriesMap};
+      const labels=uniqueSorted([...bm.keys()]);
+      const ks=new Set(); for(const b of labels) Object.keys(bm.get(b)||{}).forEach(k=>ks.add(k));
+      const keys=[...ks].sort((a,b)=>a.localeCompare(b));
+      const sm={}; for(const k of keys) sm[k]=labels.map(b=>bm.get(b)?.[k]||0);
+      return {labels,keys,seriesMap:sm};
     }
-    function aggregateTagCounts(topics){
-      const counts={};
+
+    function aggTagCounts(topics){
+      const c={};
       for(const t of topics){
-        const tags=extractTags(t);
-        const used=tags.length?tags:[UNKNOWN_LABEL];
-        for(const tag of used) counts[tag]=(counts[tag]||0)+1;
+        const tags=extractTags(t); const used=tags.length?tags:[UNKNOWN_LABEL];
+        for(const tag of used) c[tag]=(c[tag]||0)+1;
       }
-      return counts;
+      return c;
     }
-    function aggregateTagStatusMatrix(topics){
-      const matrix={}, totals={}, statusSet=new Set();
+
+    function aggTagStatusMatrix(topics){
+      const matrix={}, totals={}, ss=new Set();
       for(const t of topics){
-        const status=getTopicStatus(t);
-        statusSet.add(status);
-        const tags=extractTags(t);
-        const used=tags.length?tags:[UNKNOWN_LABEL];
+        const st=getStatus(t); ss.add(st);
+        const tags=extractTags(t); const used=tags.length?tags:[UNKNOWN_LABEL];
         for(const tag of used){
           if(!matrix[tag]) matrix[tag]={};
-          matrix[tag][status]=(matrix[tag][status]||0)+1;
+          matrix[tag][st]=(matrix[tag][st]||0)+1;
           totals[tag]=(totals[tag]||0)+1;
         }
       }
       const tags=Object.keys(matrix).sort((a,b)=>a.localeCompare(b));
-      const statuses=[...statusSet].sort((a,b)=>a.localeCompare(b));
+      const statuses=[...ss].sort((a,b)=>a.localeCompare(b));
       return {tags,statuses,matrix,totals};
     }
-    function renderTagStatusTable(targetEl, tagMatrix){
-      const {tags,statuses,matrix,totals}=tagMatrix;
-      const header=`<th>Fag (Tag)</th><th class="right">Totalt</th>`+statuses.map(s=>`<th class="right">${escapeHtml(s)}</th>`).join("");
-      const rows=tags.map(tag=>{
-        const total=totals[tag]||0;
-        const cells=`<td><span class="pill">${escapeHtml(tag)}</span></td><td class="right"><b>${total}</b></td>`+
-          statuses.map(s=>`<td class="right">${matrix[tag]?.[s]||0}</td>`).join("");
-        return `<tr>${cells}</tr>`;
-      }).join("");
-      targetEl.innerHTML=`<table><thead><tr>${header}</tr></thead><tbody>${rows}</tbody></table>`;
-    }
-    function aggregateAvgCycleTimeCreationBucket(topics){
-      const bucketMap=new Map(); const allDays=[];
+
+    function aggAvgCycleTime(topics){
+      const bm=new Map(), all=[];
       for(const t of topics){
-        const closed=getClosedDateIfClosed(t);
-        if(!closed) continue;
+        const cl=getClosedDate(t); if(!cl) continue;
         const cd=parseDateMaybe(t.creation_date); if(!cd) continue;
-        const diff=closed.getTime()-cd.getTime(); if(diff<0) continue;
-        const days=diff/(1000*60*60*24);
-        allDays.push(days);
-        const b=bucketKey(cd);
-        if(!bucketMap.has(b)) bucketMap.set(b,[]);
-        bucketMap.get(b).push(days);
+        const diff=cl-cd; if(diff<0) continue;
+        const days=diff/(1000*60*60*24); all.push(days);
+        const b=bucketKey(cd); if(!bm.has(b)) bm.set(b,[]);
+        bm.get(b).push(days);
       }
-      const labels=uniqueSorted([...bucketMap.keys()]);
-      const series=labels.map(b=>{const a=avg(bucketMap.get(b)||[]); return a===null?null:Math.round(a);});
-      const globalAvg=avg(allDays);
-      const globalLine=labels.map(_=>globalAvg===null?null:Math.round(globalAvg));
-      return {labels,series,globalLine};
+      const labels=uniqueSorted([...bm.keys()]);
+      const series=labels.map(b=>{ const a=avg(bm.get(b)||[]); return a===null?null:Math.round(a); });
+      const ga=avg(all);
+      return {labels, series, globalLine:labels.map(_=>ga===null?null:Math.round(ga))};
     }
 
-    // ====== AGG (VDC) ======
-    function buildUnifiedWeekLabels(topics){
+    function buildWeekLabels(topics){
       const weeks=[];
       for(const t of topics){
         const cd=parseDateMaybe(t.creation_date); if(cd) weeks.push(bucketKey(cd));
-        const closed=getClosedDateIfClosed(t); if(closed) weeks.push(bucketKey(closed));
+        const cl=getClosedDate(t); if(cl) weeks.push(bucketKey(cl));
       }
-      return uniqueSorted(weeks).sort((a,b)=>a.localeCompare(b));
+      return uniqueSorted(weeks);
     }
-    function aggregateCreatedClosedPerWeek(topics, weekLabels){
-      const createdMap={}, closedMap={};
-      for(const w of weekLabels){ createdMap[w]=0; closedMap[w]=0; }
+
+    function aggCreatedClosed(topics, wls){
+      const cm={}, xm={};
+      for(const w of wls){ cm[w]=0; xm[w]=0; }
       for(const t of topics){
         const cd=parseDateMaybe(t.creation_date);
-        if(cd){
-          const w=bucketKey(cd);
-          if(w in createdMap) createdMap[w]+=1;
-        }
-        const closed=getClosedDateIfClosed(t);
-        if(closed){
-          const w=bucketKey(closed);
-          if(w in closedMap) closedMap[w]+=1;
-        }
+        if(cd){ const w=bucketKey(cd); if(w in cm) cm[w]+=1; }
+        const cl=getClosedDate(t);
+        if(cl){ const w=bucketKey(cl); if(w in xm) xm[w]+=1; }
       }
-      return {
-        createdSeries: weekLabels.map(w=>createdMap[w]||0),
-        closedSeries: weekLabels.map(w=>closedMap[w]||0)
-      };
+      return {c:wls.map(w=>cm[w]||0), x:wls.map(w=>xm[w]||0)};
     }
-    function aggregateBacklogCumulative(createdSeries, closedSeries){
-      const out=[]; let cum=0;
-      for(let i=0;i<createdSeries.length;i++){
-        cum += (createdSeries[i]||0) - (closedSeries[i]||0);
-        out.push(cum);
-      }
-      return out;
-    }
-    function aggregateWipEndOfWeek(topics, weekLabels){
-      const items=topics.map(t=>{
-        const created=parseDateMaybe(t.creation_date);
-        const closed=getClosedDateIfClosed(t);
-        return {created,closed};
-      }).filter(x=>x.created);
 
-      const out=[];
-      for(const w of weekLabels){
-        const {end}=isoWeekToDateRange(w);
-        const endMs=end.getTime();
-        let count=0;
-        for(const it of items){
-          if(it.created.getTime()<=endMs){
-            if(!it.closed || it.closed.getTime()>endMs) count++;
-          }
-        }
-        out.push(count);
-      }
-      return out;
-    }
-    function aggregateAgingOpenBuckets(topics, periodEndDate){
-      const buckets={}; for(const b of AGING_BUCKETS) buckets[b.key]=0;
-      const endMs=periodEndDate.getTime();
+    function aggBacklog(c,x){ let cum=0; return c.map((_,i)=>(cum+=c[i]-x[i])); }
 
+    function aggWip(topics, wls){
+      const items=topics.map(t=>({ created:parseDateMaybe(t.creation_date), closed:getClosedDate(t) })).filter(x=>x.created);
+      return wls.map(w=>{
+        const {end}=isoWeekToDateRange(w); const em=end.getTime();
+        return items.filter(it=>it.created.getTime()<=em && (!it.closed||it.closed.getTime()>em)).length;
+      });
+    }
+
+    function aggDueDate(topics, wls){
+      const on={}, late={}; for(const w of wls){ on[w]=0; late[w]=0; }
+      let found=false;
       for(const t of topics){
-        const created=parseDateMaybe(t.creation_date);
-        if(!created) continue;
-
-        const closed=getClosedDateIfClosed(t);
-        const openAtEnd=!closed || closed.getTime()>endMs;
-        if(!openAtEnd) continue;
-
-        const ageDays=Math.floor((endMs-created.getTime())/(1000*60*60*24));
-        for(const b of AGING_BUCKETS){
-          if(ageDays>=b.min && ageDays<=b.max){ buckets[b.key]+=1; break; }
-        }
+        const due=parseDateMaybe(t.due_date||t.dueDate||t.duedate); if(!due) continue;
+        found=true;
+        const cl=getClosedDate(t); if(!cl) continue;
+        const w=bucketKey(cl); if(!(w in on)) continue;
+        if(cl.getTime()<=due.getTime()) on[w]+=1; else late[w]+=1;
       }
-      return buckets;
-    }
-    function aggregateCycleTimeMedianP80ByCloseWeek(topics, weekLabels){
-      const map={}; for(const w of weekLabels) map[w]=[];
-      for(const t of topics){
-        const created=parseDateMaybe(t.creation_date);
-        const closed=getClosedDateIfClosed(t);
-        if(!created || !closed) continue;
-        const diff=closed.getTime()-created.getTime(); if(diff<0) continue;
-        const days=diff/(1000*60*60*24);
-        const w=bucketKey(closed);
-        if(w in map) map[w].push(days);
-      }
-      return {
-        medianSeries: weekLabels.map(w=>{const m=median(map[w]||[]); return m===null?null:Math.round(m);}),
-        p80Series: weekLabels.map(w=>{const p=percentile(map[w]||[],0.80); return p===null?null:Math.round(p);})
-      };
-    }
-    function extractDueDate(topic){ return parseDateMaybe(topic.due_date || topic.dueDate || topic.duedate); }
-    function aggregateDueDateOnTimeLateByCloseWeek(topics, weekLabels){
-      const onTime={}, late={};
-      for(const w of weekLabels){ onTime[w]=0; late[w]=0; }
-      let foundAnyDue=false;
-
-      for(const t of topics){
-        const due=extractDueDate(t);
-        if(!due) continue;
-        foundAnyDue=true;
-        const closed=getClosedDateIfClosed(t);
-        if(!closed) continue;
-
-        const w=bucketKey(closed);
-        if(!(w in onTime)) continue;
-        if(closed.getTime()<=due.getTime()) onTime[w]+=1;
-        else late[w]+=1;
-      }
-
-      return {
-        foundAnyDue,
-        onTimeSeries: weekLabels.map(w=>onTime[w]||0),
-        lateSeries: weekLabels.map(w=>late[w]||0)
-      };
-    }
-    function aggregateCfdApprox(topics, weekLabels){
-      const statusesSet=new Set();
-      for(const t of topics){
-        const st=getTopicStatus(t);
-        if(!CLOSED_STATUSES.has(st)) statusesSet.add(st);
-      }
-      const openStatuses=[...statusesSet].sort((a,b)=>a.localeCompare(b));
-
-      const seriesMap={};
-      for(const st of openStatuses) seriesMap[st]=[];
-      seriesMap["Closed"]=[];
-
-      const items=topics.map(t=>{
-        const created=parseDateMaybe(t.creation_date);
-        const closed=getClosedDateIfClosed(t);
-        const status=getTopicStatus(t);
-        return {created,closed,status};
-      }).filter(x=>x.created);
-
-      for(const w of weekLabels){
-        const {end}=isoWeekToDateRange(w);
-        const endMs=end.getTime();
-
-        let closedCount=0;
-        const openCountByStatus={};
-        for(const st of openStatuses) openCountByStatus[st]=0;
-
-        for(const it of items){
-          if(it.created.getTime()>endMs) continue;
-
-          if(it.closed && it.closed.getTime()<=endMs){
-            closedCount++;
-          } else {
-            const st = (CLOSED_STATUSES.has(it.status) ? "Open" : it.status);
-            if(st in openCountByStatus) openCountByStatus[st] += 1;
-            else {
-              if(!openCountByStatus[UNKNOWN_LABEL]) openCountByStatus[UNKNOWN_LABEL]=0;
-              openCountByStatus[UNKNOWN_LABEL] += 1;
-            }
-          }
-        }
-
-        for(const st of openStatuses){
-          seriesMap[st].push(openCountByStatus[st]||0);
-        }
-        seriesMap["Closed"].push(closedCount);
-      }
-
-      const keys=[...openStatuses, "Closed"];
-      return { keys, seriesMap };
-    }
-    function aggregateAgingOpenBucketsByTag(topics, periodEndDate){
-      const endMs=periodEndDate.getTime();
-      const tagMap={};
-
-      for(const t of topics){
-        const created=parseDateMaybe(t.creation_date);
-        if(!created) continue;
-
-        const closed=getClosedDateIfClosed(t);
-        const openAtEnd=!closed || closed.getTime()>endMs;
-        if(!openAtEnd) continue;
-
-        const tags=extractTags(t);
-        const used=tags.length?tags:[UNKNOWN_LABEL];
-
-        const ageDays=Math.floor((endMs-created.getTime())/(1000*60*60*24));
-        let bucket="60+";
-        for(const b of AGING_BUCKETS){
-          if(ageDays>=b.min && ageDays<=b.max){ bucket=b.key; break; }
-        }
-
-        for(const tag of used){
-          if(!tagMap[tag]) tagMap[tag]={};
-          tagMap[tag][bucket]=(tagMap[tag][bucket]||0)+1;
-        }
-      }
-
-      const tags=Object.keys(tagMap).sort((a,b)=>a.localeCompare(b));
-      const buckets=AGING_BUCKETS.map(b=>b.key);
-
-      const seriesMap={};
-      for(const b of buckets){
-        seriesMap[b]=tags.map(tag => tagMap[tag]?.[b] || 0);
-      }
-
-      return { tags, buckets, seriesMap };
+      return {found, on:wls.map(w=>on[w]||0), late:wls.map(w=>late[w]||0)};
     }
 
-    // ====== Chart builders ======
-    function destroyIf(c){ if(c) c.destroy(); return null; }
-    function buildBar(ctx, labels, datasets, stacked=false){
-      return new Chart(ctx,{
+    // ── Chart builders ───────────────────────────────
+    function destroyChart(id){ if(charts[id]){ charts[id].destroy(); delete charts[id]; } }
+
+    function getCtx(id){ return document.getElementById(id).getContext("2d"); }
+
+    function mkDataset(label, data, idx, extra={}){
+      return { label, data, backgroundColor:PALETTE[idx%PALETTE.length], borderColor:PALETTE[idx%PALETTE.length], borderWidth:2, ...extra };
+    }
+
+    function buildBar(id, labels, datasets, stacked=false){
+      destroyChart(id);
+      charts[id]=new Chart(getCtx(id),{
         type:"bar",
         data:{labels,datasets},
         options:{
-          responsive:true,
-          plugins:{legend:{display:true}},
+          responsive:true, maintainAspectRatio:false,
+          plugins:{legend:{display:true, labels:{boxWidth:12, padding:12}}},
           scales:{
             x:{stacked, ticks:{maxRotation:45,minRotation:0,autoSkip:true}},
             y:{stacked, beginAtZero:true, ticks:{precision:0}}
@@ -1077,13 +715,15 @@
         }
       });
     }
-    function buildLine(ctx, labels, datasets){
-      return new Chart(ctx,{
+
+    function buildLine(id, labels, datasets){
+      destroyChart(id);
+      charts[id]=new Chart(getCtx(id),{
         type:"line",
         data:{labels,datasets},
         options:{
-          responsive:true,
-          plugins:{legend:{display:true}},
+          responsive:true, maintainAspectRatio:false,
+          plugins:{legend:{display:true, labels:{boxWidth:12, padding:12}}},
           scales:{
             x:{ticks:{maxRotation:45,minRotation:0,autoSkip:true}},
             y:{beginAtZero:true, ticks:{precision:0}}
@@ -1091,315 +731,326 @@
         }
       });
     }
-    function buildMultiLine(ctx, labels, keys, seriesMap){
-      const datasets=keys.map(k=>({ label:k, data:seriesMap[k], tension:0.25, pointRadius:2 }));
-      return buildLine(ctx, labels, datasets);
+
+    function buildMultiLine(id, labels, keys, seriesMap){
+      const ds=keys.map((k,i)=>mkDataset(k, seriesMap[k], i, {tension:.25, pointRadius:2, fill:false}));
+      buildLine(id, labels, ds);
     }
-    function buildPieWithCounts(ctx, counts){
+
+    function buildPie(id, counts){
+      destroyChart(id);
       const labels=Object.keys(counts);
       const data=labels.map(l=>counts[l]);
-      const total = data.reduce((a,b)=>a+b,0);
-
-      return new Chart(ctx,{
+      const total=data.reduce((a,b)=>a+b,0);
+      charts[id]=new Chart(getCtx(id),{
         type:"pie",
-        data:{labels,datasets:[{data}]},
+        data:{labels, datasets:[{ data, backgroundColor:PALETTE.slice(0,labels.length) }]},
         options:{
-          responsive:true,
-          onClick: (evt, elements, chart) => {
-            if(!elements || !elements.length) return;
-            const idx = elements[0].index;
-            const tag = chart.data.labels[idx];
-            openTopicsModalForTag(tag);
+          responsive:true, maintainAspectRatio:false,
+          onClick:(_,els,chart)=>{
+            if(!els||!els.length) return;
+            openModal(chart.data.labels[els[0].index]);
           },
           plugins:{
-            legend:{display:true},
+            legend:{display:true, labels:{boxWidth:12, padding:10}},
             tooltip:{
               callbacks:{
-                label:(c)=>{
-                  const v = c.parsed ?? 0;
-                  const pct = total ? (v/total*100) : 0;
-                  return `${c.label}: ${v} (${pct.toFixed(1)}%)`;
-                }
+                label:c=>{ const v=c.parsed??0; const pct=total?(v/total*100):0; return `${c.label}: ${v} (${pct.toFixed(1)}%)`; }
               }
             },
             datalabels:{
-              formatter:(value, context)=>{
-                const sum = context.chart.data.datasets[0].data.reduce((a,b)=>a+b,0);
-                if(!sum) return "";
-                const pct = (value/sum)*100;
-                if (pct < 3) return "";
-                return `${pct.toFixed(0)}%`;
+              formatter:(v,ctx)=>{
+                const s=ctx.chart.data.datasets[0].data.reduce((a,b)=>a+b,0);
+                if(!s) return ""; const p=(v/s)*100; return p<4?"":p.toFixed(0)+"%";
               },
-              font:{ weight:"bold", size:12 },
-              color:"#111827"
+              font:{weight:"bold", size:11}, color:"#fff"
             }
           }
         }
       });
     }
-    function buildStackedBar(ctx, labels, buckets, seriesMap){
-      const datasets=buckets.map(b=>({ label:b, data:seriesMap[b] }));
-      return buildBar(ctx, labels, datasets, true);
-    }
-    function buildCfd(ctx, labels, keys, seriesMap){
-      const datasets = keys.map((k, idx) => ({
-        label: k,
-        data: seriesMap[k],
-        fill: idx === 0 ? "origin" : "-1",
-        tension: 0.25,
-        pointRadius: 0
-      }));
-      return new Chart(ctx,{
-        type:"line",
-        data:{labels,datasets},
-        options:{
-          responsive:true,
-          plugins:{legend:{display:true}},
-          scales:{
-            x:{ticks:{maxRotation:45,minRotation:0,autoSkip:true}},
-            y:{beginAtZero:true, ticks:{precision:0}}
-          }
-        }
+
+    // ── Tag status table ─────────────────────────────
+    function renderTagTable(el, tagMatrix){
+      const {tags,statuses,matrix,totals}=tagMatrix;
+      const header=`<th>Fag (Tag)</th><th class="right">Totalt</th>`+statuses.map(s=>`<th class="right">${escHtml(s)}</th>`).join("");
+      const rows=tags.map(tag=>{
+        const total=totals[tag]||0;
+        const sel=(selectedTag===tag)?' class="tag-row selected"':' class="tag-row"';
+        const cells=`<td><span class="tag-pill">${escHtml(tag)}</span></td><td class="right"><strong>${total}</strong></td>`+
+          statuses.map(s=>`<td class="right">${matrix[tag]?.[s]||0}</td>`).join("");
+        return `<tr${sel} data-tag="${escHtml(tag)}">${cells}</tr>`;
+      }).join("");
+      el.innerHTML=`<table><thead><tr>${header}</tr></thead><tbody>${rows}</tbody></table>`;
+      el.querySelectorAll("tr.tag-row").forEach(tr=>{
+        tr.addEventListener("click",()=>{
+          selectedTag=tr.getAttribute("data-tag")||null;
+          updateTagFilterUi();
+          renderAll(currentWeekFilteredTopics);
+        });
       });
     }
 
-    // ====== Render ======
-    function renderVdcDashboard(topicsToUse){
-      const weekLabels = buildUnifiedWeekLabels(topicsToUse);
-      if(!weekLabels.length) return;
-      const periodEndDate = getPeriodEndDateFromSelection(weekLabels);
+    // ── Modal ────────────────────────────────────────
+    function openModal(tag){
+      modalState.tag=tag;
+      modalState.topics=(currentWeekFilteredTopics||[]).filter(t=>{
+        const tags=extractTags(t);
+        return tag===UNKNOWN_LABEL ? tags.length===0 : tags.includes(tag);
+      });
+      modalState.sortKey="created"; modalState.sortDir="desc"; modalState.search="";
+      document.getElementById("topicsModalTag").textContent=tag;
+      const from=document.getElementById("fromWeekSelect").value;
+      const to=document.getElementById("toWeekSelect").value;
+      const period=(!from&&!to)?"Alle uker":`${from||"start"} → ${to||"slutt"}`;
+      document.getElementById("topicsModalMeta").textContent=`Periode: ${period} • Topics: ${modalState.topics.length}`;
+      document.getElementById("topicsModalOverlay").classList.add("open");
+      const s=document.getElementById("topicsModalSearch"); s.value=""; s.focus();
+      renderModalTable();
+    }
+    function closeModal(){ document.getElementById("topicsModalOverlay").classList.remove("open"); }
 
-      const cc=aggregateCreatedClosedPerWeek(topicsToUse, weekLabels);
-      createdClosedChart=destroyIf(createdClosedChart);
-      createdClosedChart=buildBar(document.getElementById("createdClosedChart").getContext("2d"), weekLabels,
-        [{label:"Created",data:cc.createdSeries},{label:"Closed",data:cc.closedSeries}], false);
+    function sortedModalTopics(){
+      const q=(modalState.search||"").toLowerCase();
+      let list=modalState.topics.filter(t=>{
+        if(!q) return true;
+        const hay=[fmtDate(parseDateMaybe(t.creation_date)), getStatus(t), safeStr(t.topic_type||t.type)||UNKNOWN_LABEL, safeStr(t.priority)||UNKNOWN_LABEL, getTitle(t), getId(t)].join(" ").toLowerCase();
+        return hay.includes(q);
+      });
+      const dir=modalState.sortDir==="asc"?1:-1;
+      list.sort((a,b)=>{
+        let cmp=0;
+        const da=parseDateMaybe(a.creation_date)?.getTime()||0;
+        const db=parseDateMaybe(b.creation_date)?.getTime()||0;
+        switch(modalState.sortKey){
+          case "created": cmp=da-db; break;
+          case "status": cmp=(getStatus(a)).localeCompare(getStatus(b)); break;
+          case "type": cmp=(safeStr(a.topic_type||a.type)||UNKNOWN_LABEL).localeCompare(safeStr(b.topic_type||b.type)||UNKNOWN_LABEL); break;
+          case "priority": cmp=(safeStr(a.priority)||UNKNOWN_LABEL).localeCompare(safeStr(b.priority)||UNKNOWN_LABEL); break;
+          case "title": cmp=getTitle(a).localeCompare(getTitle(b)); break;
+          case "id": cmp=getId(a).localeCompare(getId(b)); break;
+          default: cmp=da-db;
+        }
+        return cmp*dir;
+      });
+      return list;
+    }
 
-      const backlogSeries=aggregateBacklogCumulative(cc.createdSeries, cc.closedSeries);
-      backlogChart=destroyIf(backlogChart);
-      backlogChart=buildLine(document.getElementById("backlogChart").getContext("2d"), weekLabels,
-        [{label:"Backlog (kumulativ)",data:backlogSeries,tension:0.25,pointRadius:2}]);
+    function renderModalTable(){
+      const wrap=document.getElementById("topicsModalTableWrap");
+      const topics=sortedModalTopics();
 
-      const wipSeries=aggregateWipEndOfWeek(topicsToUse, weekLabels);
-      wipChart=destroyIf(wipChart);
-      wipChart=buildLine(document.getElementById("wipChart").getContext("2d"), weekLabels,
-        [{label:"WIP (åpne ved ukeslutt)",data:wipSeries,tension:0.25,pointRadius:2}]);
+      const arrow=key=>{
+        if(modalState.sortKey!==key) return "";
+        return `<span class="sort-arrow">${modalState.sortDir==="asc"?"▲":"▼"}</span>`;
+      };
 
-      const aging=aggregateAgingOpenBuckets(topicsToUse, periodEndDate);
-      agingChart=destroyIf(agingChart);
-      agingChart=buildBar(document.getElementById("agingChart").getContext("2d"),
-        Object.keys(aging), [{label:"Åpne saker", data:Object.keys(aging).map(k=>aging[k])}], false);
+      const rows=topics.map(t=>{
+        const cd=fmtDate(parseDateMaybe(t.creation_date));
+        const type=safeStr(t.topic_type||t.type)||UNKNOWN_LABEL;
+        return `<tr>
+          <td>${escHtml(cd)}</td>
+          <td>${escHtml(getStatus(t))}</td>
+          <td>${escHtml(type)}</td>
+          <td>${escHtml(safeStr(t.priority)||UNKNOWN_LABEL)}</td>
+          <td title="${escHtml(getTitle(t))}" style="white-space:normal;max-width:320px;">${escHtml(getTitle(t))}</td>
+          <td><code>${escHtml(getId(t))}</code></td>
+        </tr>`;
+      }).join("");
 
-      const ct=aggregateCycleTimeMedianP80ByCloseWeek(topicsToUse, weekLabels);
-      cycleTimeChart=destroyIf(cycleTimeChart);
-      cycleTimeChart=buildLine(document.getElementById("cycleTimeChart").getContext("2d"), weekLabels,
-        [{label:"Median (dager)",data:ct.medianSeries,tension:0.25,pointRadius:2},
-         {label:"P80 (dager)",data:ct.p80Series,tension:0.25,pointRadius:2}]);
+      wrap.innerHTML=`<table>
+        <thead><tr>
+          <th class="sortable" data-sort="created">Opprettet${arrow("created")}</th>
+          <th class="sortable" data-sort="status">Status${arrow("status")}</th>
+          <th class="sortable" data-sort="type">Type${arrow("type")}</th>
+          <th class="sortable" data-sort="priority">Priority${arrow("priority")}</th>
+          <th class="sortable" data-sort="title">Tittel${arrow("title")}</th>
+          <th class="sortable" data-sort="id">GUID/ID${arrow("id")}</th>
+        </tr></thead>
+        <tbody>${rows||`<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px;">Ingen topics funnet.</td></tr>`}</tbody>
+      </table>`;
 
-      const dd=aggregateDueDateOnTimeLateByCloseWeek(topicsToUse, weekLabels);
-      const note=document.getElementById("dueDateNote");
-      dueDateChart=destroyIf(dueDateChart);
-      if(!dd.foundAnyDue){
-        note.textContent="Ingen topics med due_date funnet i datagrunnlaget (grafen viser 0).";
-        dueDateChart=buildBar(document.getElementById("dueDateChart").getContext("2d"), ["–"],
-          [{label:"On-time",data:[0]},{label:"Late",data:[0]}], true);
-      } else {
-        note.textContent="Lukkede saker per uke: on-time (closed <= due_date) vs late (closed > due_date).";
-        dueDateChart=buildBar(document.getElementById("dueDateChart").getContext("2d"), weekLabels,
-          [{label:"On-time",data:dd.onTimeSeries},{label:"Late",data:dd.lateSeries}], true);
+      wrap.querySelectorAll("th.sortable").forEach(th=>{
+        th.addEventListener("click",()=>{
+          const key=th.getAttribute("data-sort");
+          if(modalState.sortKey===key) modalState.sortDir=modalState.sortDir==="asc"?"desc":"asc";
+          else { modalState.sortKey=key; modalState.sortDir=key==="created"?"desc":"asc"; }
+          renderModalTable();
+        });
+      });
+
+      const meta=document.getElementById("topicsModalMeta");
+      const from=document.getElementById("fromWeekSelect").value;
+      const to=document.getElementById("toWeekSelect").value;
+      const period=(!from&&!to)?"Alle uker":`${from||"start"} → ${to||"slutt"}`;
+      meta.textContent=`Periode: ${period} • Topics: ${topics.length}/${modalState.topics.length}`;
+    }
+
+    // ── CSV export ───────────────────────────────────
+    function csvEsc(v){ const s=safeStr(v); return (s.includes('"')||s.includes(",")||s.includes("\n"))?`"${s.replaceAll('"','""')}"`:`${s}`; }
+    function exportCsv(){
+      const list=sortedModalTopics();
+      const rows=[["Tag","Opprettet","Status","Type","Priority","Tittel","GUID/ID"].map(csvEsc).join(",")];
+      for(const t of list){
+        rows.push([
+          modalState.tag||"", fmtDate(parseDateMaybe(t.creation_date)), getStatus(t),
+          safeStr(t.topic_type||t.type)||UNKNOWN_LABEL, safeStr(t.priority)||UNKNOWN_LABEL,
+          getTitle(t), getId(t)
+        ].map(csvEsc).join(","));
       }
-
-      const cfd=aggregateCfdApprox(topicsToUse, weekLabels);
-      cfdChart=destroyIf(cfdChart);
-      cfdChart=buildCfd(document.getElementById("cfdChart").getContext("2d"), weekLabels, cfd.keys, cfd.seriesMap);
-
-      const abt=aggregateAgingOpenBucketsByTag(topicsToUse, periodEndDate);
-      agingByTagChart=destroyIf(agingByTagChart);
-      agingByTagChart=buildStackedBar(document.getElementById("agingByTagChart").getContext("2d"),
-        abt.tags, abt.buckets, abt.seriesMap);
+      const csv=rows.join("\r\n");
+      const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement("a"); a.href=url;
+      const from=document.getElementById("fromWeekSelect").value;
+      const to=document.getElementById("toWeekSelect").value;
+      const range=(!from&&!to)?"alle-uker":`${from||"start"}_to_${to||"slutt"}`;
+      const tag=(modalState.tag||"tag").replaceAll(/[^a-zA-Z0-9_-]/g,"_");
+      a.download=`BCF_Topics_${tag}_${range}.csv`;
+      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
     }
 
-    function renderTopicDashboard(topicsToUse){
-      // 1) Tag pie + table
-      const tagCounts=aggregateTagCounts(topicsToUse);
-      tagDisciplineChart=destroyIf(tagDisciplineChart);
-      tagDisciplineChart=buildPieWithCounts(document.getElementById("tagDisciplineChart").getContext("2d"), tagCounts);
-      renderTagStatusTable(document.getElementById("tagStatusTableWrap"), aggregateTagStatusMatrix(topicsToUse));
+    // ── Render ───────────────────────────────────────
+    function renderTopicDashboard(weekTopics, filteredTopics){
+      buildPie("tagDisciplineChart", aggTagCounts(weekTopics));
+      renderTagTable(document.getElementById("tagStatusTableWrap"), aggTagStatusMatrix(weekTopics));
 
-      // 2) Status line
-      const byStatus=aggregateCreatedByCategory(topicsToUse,t=>(t.topic_status||t.status));
-      statusLineChart=destroyIf(statusLineChart);
-      statusLineChart=buildMultiLine(document.getElementById("statusLineChart").getContext("2d"), byStatus.labels, byStatus.keys, byStatus.seriesMap);
+      const byStatus=aggByCategory(filteredTopics, t=>t.topic_status||t.status);
+      buildMultiLine("statusLineChart", byStatus.labels, byStatus.keys, byStatus.seriesMap);
 
-      // 3) Type line
-      const byType=aggregateCreatedByCategory(topicsToUse,t=>(t.topic_type||t.type));
-      typeLineChart=destroyIf(typeLineChart);
-      typeLineChart=buildMultiLine(document.getElementById("typeLineChart").getContext("2d"), byType.labels, byType.keys, byType.seriesMap);
+      const byType=aggByCategory(filteredTopics, t=>t.topic_type||t.type);
+      buildMultiLine("typeLineChart", byType.labels, byType.keys, byType.seriesMap);
 
-      // 4) Priority line
-      const byPriority=aggregateCreatedByCategory(topicsToUse,t=>(t.priority));
-      priorityLineChart=destroyIf(priorityLineChart);
-      priorityLineChart=buildMultiLine(document.getElementById("priorityLineChart").getContext("2d"), byPriority.labels, byPriority.keys, byPriority.seriesMap);
+      const byPriority=aggByCategory(filteredTopics, t=>t.priority);
+      buildMultiLine("priorityLineChart", byPriority.labels, byPriority.keys, byPriority.seriesMap);
 
-      // 5) Avg cycle time per creation-week (+ global line)
-      const cycleAgg=aggregateAvgCycleTimeCreationBucket(topicsToUse);
-      avgCycleTimeChart=destroyIf(avgCycleTimeChart);
-      avgCycleTimeChart=buildLine(document.getElementById("avgCycleTimeChart").getContext("2d"), cycleAgg.labels,
-        [{label:"Snitt per uke (dager)",data:cycleAgg.series,tension:0.25,pointRadius:2},
-         {label:"Globalt snitt (dager)",data:cycleAgg.globalLine,tension:0,borderDash:[6,4],pointRadius:0}]);
+      const ct=aggAvgCycleTime(filteredTopics);
+      buildLine("avgCycleTimeChart", ct.labels, [
+        mkDataset("Snitt per uke (dager)", ct.series, 0, {tension:.25,pointRadius:2,fill:false}),
+        mkDataset("Globalt snitt (dager)", ct.globalLine, 1, {tension:0,pointRadius:0,fill:false,borderDash:[6,4]})
+      ]);
 
-      // Remaining: created per week
-      const totalAgg=aggregateCreatedTotal(topicsToUse);
-      createdOverTimeChart=destroyIf(createdOverTimeChart);
-      createdOverTimeChart=buildBar(document.getElementById("createdOverTimeChart").getContext("2d"), totalAgg.labels,
-        [{label:"Opprettede topics",data:totalAgg.totals}], false);
+      const tot=aggCreatedTotal(filteredTopics);
+      buildBar("createdOverTimeChart", tot.labels, [mkDataset("Opprettede topics", tot.totals, 0)]);
     }
 
-    function renderAll(topicsFiltered){
-      currentFilteredTopics = topicsFiltered;
-      renderTopicDashboard(topicsFiltered);
-      renderVdcDashboard(topicsFiltered);
+    function renderVdcDashboard(topics){
+      const wls=buildWeekLabels(topics);
+      if(!wls.length) return;
+
+      const {c,x}=aggCreatedClosed(topics,wls);
+      buildBar("createdClosedChart", wls, [
+        mkDataset("Created",c,0), mkDataset("Closed",x,1)
+      ]);
+
+      buildLine("backlogChart", wls, [
+        mkDataset("Backlog (kumulativ)", aggBacklog(c,x), 0, {tension:.25,pointRadius:2,fill:false})
+      ]);
+
+      buildLine("wipChart", wls, [
+        mkDataset("WIP (åpne ved ukeslutt)", aggWip(topics,wls), 2, {tension:.25,pointRadius:2,fill:false})
+      ]);
+
+      const dd=aggDueDate(topics,wls);
+      const note=document.getElementById("dueDateNote");
+      if(!dd.found){
+        note.textContent="Ingen topics med due_date funnet.";
+        buildBar("dueDateChart",["–"],[mkDataset("On-time",[0],3),mkDataset("Late",[0],0)],true);
+      } else {
+        note.textContent="Lukkede saker: on-time (closed ≤ due_date) vs late (closed > due_date).";
+        buildBar("dueDateChart", wls, [mkDataset("On-time",dd.on,3), mkDataset("Late",dd.late,0)], true);
+      }
     }
 
-    // ====== API ======
-    async function fetchTopics(projectId){
-      if(!accessToken) throw new Error("Mangler accessToken – kunne ikke hente Topics.");
-      const url=`${TOPICS_API_BASE}/bcf/3.0/projects/${encodeURIComponent(projectId)}/topics`;
-      const resp=await fetch(url,{
-        method:"GET",
+    function renderAll(weekFiltered){
+      currentWeekFilteredTopics=weekFiltered;
+      const filtered=applyTagFilter(weekFiltered);
+      currentFilteredTopics=filtered;
+      updateTagFilterUi();
+      renderTopicDashboard(weekFiltered, filtered);
+      renderVdcDashboard(filtered);
+    }
+
+    // ── API ──────────────────────────────────────────
+    async function fetchTopics(pid){
+      if(!accessToken) throw new Error("Mangler accessToken.");
+      const resp=await fetch(`${TOPICS_API_BASE}/bcf/3.0/projects/${encodeURIComponent(pid)}/topics`,{
         headers:{ "Authorization":`Bearer ${accessToken}`, "Accept":"application/json" }
       });
-      if(!resp.ok){
-        const text=await resp.text().catch(()=> "");
-        throw new Error(`Topics API-feil (${resp.status}): ${text || resp.statusText}`);
-      }
-      const json=await resp.json();
-      return Array.isArray(json)?json:[];
+      if(!resp.ok){ const t=await resp.text().catch(()=>""); throw new Error(`API-feil (${resp.status}): ${t||resp.statusText}`); }
+      const j=await resp.json();
+      return Array.isArray(j)?j:[];
     }
 
     async function refreshData(){
-      setBusy(true);
-      setError("");
-      setStatus("Henter BCF Topics …", true);
-
+      setBusy(true); setError(""); setStatus("Henter BCF Topics…",true);
       try{
         allTopics=await fetchTopics(currentProjectId);
         allTopicsWithDates=allTopics.filter(t=>!!parseDateMaybe(t.creation_date));
-
-        if(!allTopicsWithDates.length){
-          setError("Fant ingen topics med creation_date. Sjekk at BCF API returnerer creation_date i ditt miljø.");
-          setStatus("Ingen data.");
-          return;
-        }
-
-        populateWeekRangeSelectors(allTopicsWithDates);
-        const filtered=filterTopicsByWeekRange(allTopicsWithDates);
+        if(!allTopicsWithDates.length){ setError("Fant ingen topics med creation_date."); setStatus("Ingen data."); return; }
+        populateWeekSelectors(allTopicsWithDates);
+        const filtered=filterByWeek(allTopicsWithDates);
         renderAll(filtered);
-
-        setStatus(`Sist oppdatert: ${new Date().toLocaleString()} | Topics: ${filtered.length}/${allTopicsWithDates.length}`);
+        setStatus(`Oppdatert ${new Date().toLocaleString("nb")} · ${filtered.length}/${allTopicsWithDates.length} topics`);
       } catch(err){
         console.error(err);
-        setError("Feil ved henting av Topics: " + (err.message || err));
-        setStatus("Klar, men med feil ved siste oppdatering.");
-      } finally {
-        setBusy(false);
-      }
+        setError("Feil ved henting: "+(err.message||err));
+        setStatus("Feil ved siste oppdatering.");
+      } finally { setBusy(false); }
     }
 
-    function handleAccessTokenPayload(payload){
+    function handleToken(payload){
       if(!payload) return;
-
       if(typeof payload==="string"){
         if(payload==="pending"||payload==="denied") return;
-        accessToken=payload;
-        refreshData();
-        return;
-      }
-
-      if(typeof payload==="object"){
-        if(payload.status==="denied"){
-          setError("Tilgang til accessToken ble avslått i Trimble Connect-innstillinger.");
-          setStatus("Kan ikke hente BCF Topics uten accessToken.");
-        } else if(payload.accessToken){
-          accessToken=payload.accessToken;
-          refreshData();
-        }
+        accessToken=payload; refreshData();
+      } else if(typeof payload==="object"){
+        if(payload.status==="denied") setError("Tilgang til accessToken ble avslått.");
+        else if(payload.accessToken){ accessToken=payload.accessToken; refreshData(); }
       }
     }
 
     async function init(){
-      setError("");
-      setStatus("Kobler til Trimble Connect …", true);
-
+      setError(""); setStatus("Kobler til Trimble Connect…",true);
       try{
-        API = await TrimbleConnectWorkspace.connect(window.parent, (event, args) => {
-          if(event==="extension.accessToken") handleAccessTokenPayload(args.data);
+        API=await TrimbleConnectWorkspace.connect(window.parent,(event,args)=>{
+          if(event==="extension.accessToken") handleToken(args.data);
         });
-
-        const projectInfo = await API.project.getCurrentProject();
-        currentProjectId = projectInfo.id;
-
-        setStatus("Ber om tilgang til accessToken …", true);
-        const permissionResult = await API.extension.requestPermission("accesstoken");
-        handleAccessTokenPayload(permissionResult);
-
-        if(permissionResult==="pending"){
-          setStatus("Venter på at bruker godkjenner tilgang …", true);
-        } else if(permissionResult==="denied"){
-          setError("Tilgang til accessToken ble avslått i Trimble Connect-innstillinger.");
-          setStatus("Kan ikke hente BCF Topics uten accessToken.");
-        } else if(typeof permissionResult==="string"){
-          accessToken=permissionResult;
-          await refreshData();
-        } else if(permissionResult && permissionResult.accessToken){
-          accessToken=permissionResult.accessToken;
-          await refreshData();
-        } else {
-          setStatus("Venter på accessToken …", true);
-        }
+        const proj=await API.project.getCurrentProject();
+        currentProjectId=proj.id;
+        setStatus("Ber om tilgang til accessToken…",true);
+        const res=await API.extension.requestPermission("accesstoken");
+        handleToken(res);
+        if(res==="pending") setStatus("Venter på bruker-godkjenning…",true);
+        else if(res==="denied"){ setError("Tilgang avslått."); setStatus("Kan ikke hente Topics uten accessToken."); }
+        else if(typeof res==="string"){ accessToken=res; await refreshData(); }
+        else if(res?.accessToken){ accessToken=res.accessToken; await refreshData(); }
+        else setStatus("Venter på accessToken…",true);
       } catch(err){
         console.error(err);
-        setError("Klarte ikke å koble til Trimble Connect Workspace API: " + (err.message || err));
+        setError("Klarte ikke koble til Trimble Connect: "+(err.message||err));
         setStatus("Feil ved initialisering.");
       }
     }
 
-    // ====== UI events ======
-    document.getElementById("applyWeekBtn").addEventListener("click", ()=>{
+    // ── Events ───────────────────────────────────────
+    document.getElementById("applyWeekBtn").addEventListener("click",()=>{
       if(!allTopicsWithDates.length) return;
-      const filtered=filterTopicsByWeekRange(allTopicsWithDates);
-      renderAll(filtered);
-
+      const f=filterByWeek(allTopicsWithDates);
+      renderAll(f);
       const from=document.getElementById("fromWeekSelect").value;
       const to=document.getElementById("toWeekSelect").value;
-      const label=(!from && !to) ? "Alle uker" : `Ukeintervall: ${from||"(start)"} → ${to||"(slutt)"}`;
-      setStatus(`${label} | Topics: ${filtered.length}/${allTopicsWithDates.length}`);
+      setStatus(`${(!from&&!to)?"Alle uker":`${from||"(start)"} → ${to||"(slutt)"}`} · ${f.length}/${allTopicsWithDates.length} topics${selectedTag?` · Fag: ${selectedTag}`:""}`);
     });
-
     document.getElementById("refreshBtn").addEventListener("click", refreshData);
+    document.getElementById("clearTagBtn").addEventListener("click",()=>{ selectedTag=null; updateTagFilterUi(); renderAll(currentWeekFilteredTopics); });
+    document.getElementById("topicsModalCloseBtn").addEventListener("click", closeModal);
+    document.getElementById("topicsModalCsvBtn").addEventListener("click", exportCsv);
+    document.getElementById("topicsModalOverlay").addEventListener("click",e=>{ if(e.target===document.getElementById("topicsModalOverlay")) closeModal(); });
+    document.addEventListener("keydown",e=>{ if(e.key==="Escape") closeModal(); });
+    document.getElementById("topicsModalSearch").addEventListener("input",e=>{ modalState.search=e.target.value||""; renderModalTable(); });
 
-    // Modal button wiring + init
-    document.addEventListener("DOMContentLoaded", ()=>{
-      init();
-
-      const closeBtn = document.getElementById("topicsModalCloseBtn");
-      const csvBtn = document.getElementById("topicsModalCsvBtn");
-      const overlay = document.getElementById("topicsModalOverlay");
-      const searchEl = document.getElementById("topicsModalSearch");
-
-      closeBtn.addEventListener("click", closeTopicsModal);
-      csvBtn.addEventListener("click", exportModalToCsv);
-
-      overlay.addEventListener("click", (e)=>{ if(e.target === overlay) closeTopicsModal(); });
-      document.addEventListener("keydown", (e)=>{ if(e.key === "Escape") closeTopicsModal(); });
-
-      searchEl.addEventListener("input", ()=>{
-        modalState.search = searchEl.value || "";
-        renderTopicsModalTable();
-      });
-    });
+    document.addEventListener("DOMContentLoaded", init);
   </script>
 </body>
 </html>
-
-
-
