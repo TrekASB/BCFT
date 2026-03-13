@@ -295,6 +295,12 @@
       <select id="toWeekSelect"><option value="">(alle)</option></select>
     </div>
     <button class="btn btn-ghost" id="applyWeekBtn">Bruk filter</button>
+    <div style="width:1px;height:28px;background:var(--border);margin:0 4px;flex-shrink:0;"></div>
+    <span class="toolbar-label">Assignee</span>
+    <div class="filter-group">
+      <select id="assigneeSelect"><option value="">(alle)</option></select>
+    </div>
+    <button class="btn btn-danger" id="clearAssigneeBtn" style="display:none;">✕ Fjern</button>
   </div>
 
   <!-- ═══ ACTIVE TAG FILTER ════════════════════════ -->
@@ -308,6 +314,7 @@
   <div class="tabs-bar">
     <button class="tab-btn active" data-tab="topic">Topic dashboard</button>
     <button class="tab-btn" data-tab="vdc">VDC dashboard</button>
+    <button class="tab-btn" data-tab="assignee">Assignee dashboard</button>
   </div>
 
   <!-- ═══ MAIN ══════════════════════════════════════ -->
@@ -323,7 +330,7 @@
           <div class="card-header">
             <div>
               <div class="card-title">Fag (Tag): fordeling</div>
-              <div class="card-hint">Klikk på et segment for å se topics</div>
+              <div class="card-hint">Klikk på et segment → se og åpne topics i Trimble Connect</div>
             </div>
           </div>
           <div class="chart-wrap"><canvas id="tagDisciplineChart"></canvas></div>
@@ -419,6 +426,64 @@
 
       </div>
     </div>
+
+    <!-- ── ASSIGNEE TAB ── -->
+    <div class="tab-panel" id="tab-assignee">
+      <div class="section-label">Assignee Statistikk</div>
+      <div class="grid">
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Saker per Assignee</div>
+              <div class="card-hint">Totalt antall saker tildelt hver person</div>
+            </div>
+          </div>
+          <div class="chart-wrap"><canvas id="assigneeTotalChart"></canvas></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Assignee: Status-fordeling</div>
+              <div class="card-hint">Åpne vs lukkede saker per person</div>
+            </div>
+          </div>
+          <div class="chart-wrap"><canvas id="assigneeStatusChart"></canvas></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Assignee: Saker over tid</div>
+              <div class="card-hint">Opprettede saker per person per uke</div>
+            </div>
+          </div>
+          <div class="chart-wrap"><canvas id="assigneeOverTimeChart"></canvas></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Gjennomsnittlig cycle time per Assignee</div>
+              <div class="card-hint">Snitt dager fra opprettet → lukket</div>
+            </div>
+          </div>
+          <div class="chart-wrap"><canvas id="assigneeCycleTimeChart"></canvas></div>
+        </div>
+
+        <div class="card" style="grid-column: 1 / -1;">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Assignee: detaljert oversikt</div>
+              <div class="card-hint">Klikk på en rad for å filtrere på assignee</div>
+            </div>
+          </div>
+          <div class="table-wrap" id="assigneeTableWrap"></div>
+        </div>
+
+      </div>
+    </div>
   </main>
 
   <!-- ═══ MODAL ════════════════════════════════════ -->
@@ -438,7 +503,7 @@
       <div class="modal-body">
         <div class="table-wrap" id="topicsModalTableWrap"></div>
         <div style="font-size:11px; color:var(--muted); margin-top:10px;">
-          Klikk kolonneoverskrift for å sortere. Standard: Opprettet (nyeste først).
+          Klikk på en <strong>rad</strong> for å åpne saken i Trimble Connect (nytt vindu). Klikk 🔗 for direkte lenke. Klikk kolonneoverskrift for å sortere.
         </div>
       </div>
     </div>
@@ -467,6 +532,7 @@
     let allTopics=[], allTopicsWithDates=[];
     let currentWeekFilteredTopics=[], currentFilteredTopics=[];
     let selectedTag=null;
+    let selectedAssignee=null;
 
     let charts = {};
 
@@ -527,6 +593,19 @@
     function getTitle(t) { return safeStr(t.title)||safeStr(t.topic_title)||"(uten tittel)"; }
     function getId(t)    { return safeStr(t.guid||t.topic_guid||t.id||t.topic_id); }
 
+    function extractAssignees(topic){
+      // BCF 2.1/3.0: assigned_to is a string (email/name). Some APIs use assignees[] array.
+      const c=[];
+      if(Array.isArray(topic.assignees)) c.push(...topic.assignees.map(safeStr).filter(Boolean));
+      const s=safeStr(topic.assigned_to||topic.assignedTo||topic.assignee);
+      if(s) c.push(s);
+      return [...new Set(c)];
+    }
+    function getAssigneesLabel(topic){
+      const a=extractAssignees(topic);
+      return a.length ? a : [UNKNOWN_LABEL];
+    }
+
     // ── Week selectors ───────────────────────────────
     function populateWeekSelectors(topics){
       const weeks=[];
@@ -563,6 +642,35 @@
         const tags=extractTags(t);
         return selectedTag===UNKNOWN_LABEL ? tags.length===0 : tags.includes(selectedTag);
       });
+    }
+
+    function applyAssigneeFilter(topics){
+      if(!selectedAssignee) return topics;
+      return topics.filter(t=>{
+        const a=extractAssignees(t);
+        return selectedAssignee===UNKNOWN_LABEL ? a.length===0 : a.includes(selectedAssignee);
+      });
+    }
+
+    function populateAssigneeDropdown(topics){
+      const names=new Set();
+      for(const t of topics){
+        const a=extractAssignees(t);
+        if(a.length) a.forEach(n=>names.add(n));
+        else names.add(UNKNOWN_LABEL);
+      }
+      const sorted=[...names].sort((a,b)=>a.localeCompare(b));
+      const sel=document.getElementById("assigneeSelect");
+      const prev=sel.value;
+      sel.innerHTML=`<option value="">(alle)</option>`+sorted.map(n=>`<option value="${escHtml(n)}">${escHtml(n)}</option>`).join("");
+      if(prev && sorted.includes(prev)) sel.value=prev;
+    }
+
+    function updateAssigneeUi(){
+      const btn=document.getElementById("clearAssigneeBtn");
+      btn.style.display=selectedAssignee?"inline-flex":"none";
+      const sel=document.getElementById("assigneeSelect");
+      sel.value=selectedAssignee||"";
     }
 
     function updateTagFilterUi(){
@@ -629,6 +737,53 @@
       const tags=Object.keys(matrix).sort((a,b)=>a.localeCompare(b));
       const statuses=[...ss].sort((a,b)=>a.localeCompare(b));
       return {tags,statuses,matrix,totals};
+    }
+
+    function aggAssigneeCounts(topics){
+      const c={};
+      for(const t of topics){
+        for(const a of getAssigneesLabel(t)) c[a]=(c[a]||0)+1;
+      }
+      return c;
+    }
+
+    function aggAssigneeStatusMatrix(topics){
+      const matrix={}, totals={}, ss=new Set();
+      for(const t of topics){
+        const st=getStatus(t); ss.add(st);
+        for(const a of getAssigneesLabel(t)){
+          if(!matrix[a]) matrix[a]={};
+          matrix[a][st]=(matrix[a][st]||0)+1;
+          totals[a]=(totals[a]||0)+1;
+        }
+      }
+      const assignees=Object.keys(matrix).sort((a,b)=>a.localeCompare(b));
+      const statuses=[...ss].sort((a,b)=>a.localeCompare(b));
+      return {assignees,statuses,matrix,totals};
+    }
+
+    function aggAssigneeOverTime(topics){
+      return aggByCategory(topics, t=>{
+        const a=extractAssignees(t); return a.length ? a[0] : UNKNOWN_LABEL;
+      });
+    }
+
+    function aggAssigneeCycleTime(topics){
+      const bm=new Map();
+      for(const t of topics){
+        const cl=getClosedDate(t); if(!cl) continue;
+        const cd=parseDateMaybe(t.creation_date); if(!cd) continue;
+        const days=(cl-cd)/(1000*60*60*24); if(days<0) continue;
+        for(const a of getAssigneesLabel(t)){
+          if(!bm.has(a)) bm.set(a,[]);
+          bm.get(a).push(days);
+        }
+      }
+      const assignees=[...bm.keys()].sort((a,b)=>a.localeCompare(b));
+      return {
+        labels: assignees,
+        data: assignees.map(a=>{ const v=avg(bm.get(a)||[]); return v===null?null:Math.round(v); })
+      };
     }
 
     function aggAvgCycleTime(topics){
@@ -791,6 +946,17 @@
       });
     }
 
+    // ── Trimble Connect topic URL ────────────────────
+    function buildTopicUrl(topicGuid){
+      if(!currentProjectId || !topicGuid) return null;
+      return `https://web.connect.trimble.com/projects/${encodeURIComponent(currentProjectId)}/topics/${encodeURIComponent(topicGuid)}`;
+    }
+
+    function openTopicInTC(topicGuid){
+      const url = buildTopicUrl(topicGuid);
+      if(url) window.open(url, "_blank", "noopener");
+    }
+
     // ── Modal ────────────────────────────────────────
     function openModal(tag){
       modalState.tag=tag;
@@ -848,13 +1014,21 @@
       const rows=topics.map(t=>{
         const cd=fmtDate(parseDateMaybe(t.creation_date));
         const type=safeStr(t.topic_type||t.type)||UNKNOWN_LABEL;
-        return `<tr>
+        const id=getId(t);
+        const assignees=extractAssignees(t).join(", ")||UNKNOWN_LABEL;
+        const tcUrl=buildTopicUrl(id);
+        const linkCell=tcUrl
+          ? `<td style="text-align:center;"><a href="${escHtml(tcUrl)}" target="_blank" rel="noopener" title="Åpne i Trimble Connect" style="font-size:16px;text-decoration:none;" onclick="event.stopPropagation()">🔗</a></td>`
+          : `<td></td>`;
+        return `<tr class="topic-row" data-id="${escHtml(id)}" style="cursor:pointer;" title="Klikk for å åpne i Trimble Connect">
           <td>${escHtml(cd)}</td>
           <td>${escHtml(getStatus(t))}</td>
           <td>${escHtml(type)}</td>
           <td>${escHtml(safeStr(t.priority)||UNKNOWN_LABEL)}</td>
-          <td title="${escHtml(getTitle(t))}" style="white-space:normal;max-width:320px;">${escHtml(getTitle(t))}</td>
-          <td><code>${escHtml(getId(t))}</code></td>
+          <td title="${escHtml(getTitle(t))}" style="white-space:normal;max-width:240px;">${escHtml(getTitle(t))}</td>
+          <td style="white-space:normal;max-width:160px;">${escHtml(assignees)}</td>
+          <td><code>${escHtml(id)}</code></td>
+          ${linkCell}
         </tr>`;
       }).join("");
 
@@ -866,9 +1040,17 @@
           <th class="sortable" data-sort="priority">Priority${arrow("priority")}</th>
           <th class="sortable" data-sort="title">Tittel${arrow("title")}</th>
           <th class="sortable" data-sort="id">GUID/ID${arrow("id")}</th>
+          <th style="text-align:center;">TC</th>
         </tr></thead>
-        <tbody>${rows||`<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px;">Ingen topics funnet.</td></tr>`}</tbody>
+        <tbody>${rows||`<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px;">Ingen topics funnet.</td></tr>`}</tbody>
       </table>`;
+
+      // Klikk på rad åpner topic i Trimble Connect
+      wrap.querySelectorAll("tr.topic-row").forEach(tr=>{
+        tr.addEventListener("click", ()=> openTopicInTC(tr.getAttribute("data-id")));
+        tr.addEventListener("mouseenter", ()=> tr.style.background="#EBF2FC");
+        tr.addEventListener("mouseleave", ()=> tr.style.background="");
+      });
 
       wrap.querySelectorAll("th.sortable").forEach(th=>{
         th.addEventListener("click",()=>{
@@ -911,6 +1093,84 @@
     }
 
     // ── Render ───────────────────────────────────────
+    function renderAssigneeTable(el, matrix){
+      const {assignees,statuses,matrix:mx,totals}=matrix;
+      const header=`<th>Assignee</th><th class="right">Totalt</th>`+statuses.map(s=>`<th class="right">${escHtml(s)}</th>`).join("");
+      const rows=assignees.map(a=>{
+        const total=totals[a]||0;
+        const sel=(selectedAssignee===a)?' class="tag-row selected"':' class="tag-row"';
+        const cells=`<td><span class="tag-pill" style="background:#f0fdf4;color:#166534;">${escHtml(a)}</span></td><td class="right"><strong>${total}</strong></td>`+
+          statuses.map(s=>`<td class="right">${mx[a]?.[s]||0}</td>`).join("");
+        return `<tr${sel} data-assignee="${escHtml(a)}">${cells}</tr>`;
+      }).join("");
+      el.innerHTML=`<table><thead><tr>${header}</tr></thead><tbody>${rows||`<tr><td colspan="${2+statuses.length}" style="text-align:center;color:var(--muted);padding:20px;">Ingen assignee-data funnet.</td></tr>`}</tbody></table>`;
+      el.querySelectorAll("tr.tag-row").forEach(tr=>{
+        tr.addEventListener("click",()=>{
+          selectedAssignee=tr.getAttribute("data-assignee")||null;
+          updateAssigneeUi();
+          renderAll(currentWeekFilteredTopics);
+        });
+      });
+    }
+
+    function renderAssigneeDashboard(topics){
+      // Bar: total per assignee
+      const counts=aggAssigneeCounts(topics);
+      const aLabels=Object.keys(counts).sort((a,b)=>counts[b]-counts[a]);
+      const aData=aLabels.map(l=>counts[l]);
+      destroyChart("assigneeTotalChart");
+      charts["assigneeTotalChart"]=new Chart(document.getElementById("assigneeTotalChart").getContext("2d"),{
+        type:"bar",
+        data:{labels:aLabels, datasets:[{ label:"Antall saker", data:aData, backgroundColor:PALETTE[0] }]},
+        options:{
+          indexAxis:"y", responsive:true, maintainAspectRatio:false,
+          plugins:{legend:{display:false}},
+          scales:{ x:{beginAtZero:true,ticks:{precision:0}}, y:{ticks:{font:{size:11}}} }
+        }
+      });
+
+      // Stacked bar: status per assignee
+      const sm=aggAssigneeStatusMatrix(topics);
+      const statusColors={"Open":"#0057B8","Active":"#F5B400","In Progress":"#7C3AED","Closed":"#1a7a4a","Done":"#1a7a4a","Resolved":"#0891b2","Approved":"#4d7c0f"};
+      const statusDs=sm.statuses.map((s,i)=>({
+        label:s, data:sm.assignees.map(a=>sm.matrix[a]?.[s]||0),
+        backgroundColor:statusColors[s]||PALETTE[i%PALETTE.length]
+      }));
+      destroyChart("assigneeStatusChart");
+      charts["assigneeStatusChart"]=new Chart(document.getElementById("assigneeStatusChart").getContext("2d"),{
+        type:"bar",
+        data:{labels:sm.assignees, datasets:statusDs},
+        options:{
+          responsive:true, maintainAspectRatio:false,
+          plugins:{legend:{display:true,labels:{boxWidth:12,padding:10}}},
+          scales:{
+            x:{stacked:true,ticks:{maxRotation:45,autoSkip:true}},
+            y:{stacked:true,beginAtZero:true,ticks:{precision:0}}
+          }
+        }
+      });
+
+      // Line: over time
+      const ot=aggAssigneeOverTime(topics);
+      buildMultiLine("assigneeOverTimeChart", ot.labels, ot.keys, ot.seriesMap);
+
+      // Bar: cycle time per assignee
+      const ct=aggAssigneeCycleTime(topics);
+      destroyChart("assigneeCycleTimeChart");
+      charts["assigneeCycleTimeChart"]=new Chart(document.getElementById("assigneeCycleTimeChart").getContext("2d"),{
+        type:"bar",
+        data:{labels:ct.labels, datasets:[{ label:"Snitt dager", data:ct.data, backgroundColor:PALETTE[4] }]},
+        options:{
+          responsive:true, maintainAspectRatio:false,
+          plugins:{legend:{display:false}},
+          scales:{ x:{ticks:{maxRotation:45,autoSkip:true}}, y:{beginAtZero:true,ticks:{precision:0}} }
+        }
+      });
+
+      // Table
+      renderAssigneeTable(document.getElementById("assigneeTableWrap"), sm);
+    }
+
     function renderTopicDashboard(weekTopics, filteredTopics){
       buildPie("tagDisciplineChart", aggTagCounts(weekTopics));
       renderTagTable(document.getElementById("tagStatusTableWrap"), aggTagStatusMatrix(weekTopics));
@@ -964,11 +1224,15 @@
 
     function renderAll(weekFiltered){
       currentWeekFilteredTopics=weekFiltered;
-      const filtered=applyTagFilter(weekFiltered);
+      populateAssigneeDropdown(weekFiltered);
+      const tagFiltered=applyTagFilter(weekFiltered);
+      const filtered=applyAssigneeFilter(tagFiltered);
       currentFilteredTopics=filtered;
       updateTagFilterUi();
+      updateAssigneeUi();
       renderTopicDashboard(weekFiltered, filtered);
       renderVdcDashboard(filtered);
+      renderAssigneeDashboard(filtered);
     }
 
     // ── API ──────────────────────────────────────────
@@ -1044,6 +1308,16 @@
     });
     document.getElementById("refreshBtn").addEventListener("click", refreshData);
     document.getElementById("clearTagBtn").addEventListener("click",()=>{ selectedTag=null; updateTagFilterUi(); renderAll(currentWeekFilteredTopics); });
+    document.getElementById("assigneeSelect").addEventListener("change",e=>{
+      selectedAssignee=e.target.value||null;
+      updateAssigneeUi();
+      renderAll(currentWeekFilteredTopics);
+    });
+    document.getElementById("clearAssigneeBtn").addEventListener("click",()=>{
+      selectedAssignee=null;
+      updateAssigneeUi();
+      renderAll(currentWeekFilteredTopics);
+    });
     document.getElementById("topicsModalCloseBtn").addEventListener("click", closeModal);
     document.getElementById("topicsModalCsvBtn").addEventListener("click", exportCsv);
     document.getElementById("topicsModalOverlay").addEventListener("click",e=>{ if(e.target===document.getElementById("topicsModalOverlay")) closeModal(); });
